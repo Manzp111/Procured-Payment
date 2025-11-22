@@ -16,6 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 
 @extend_schema(
+    tags=['Authentication'],
     summary="Register a new user account",
     description="""
 ### User Registration API  
@@ -132,6 +133,7 @@ class RegisterAPIView(APIView):
 
 
 @extend_schema(
+    tags=['Authentication'],
     summary="Login a user and get JWT tokens",
     description="""
 ### User Login API
@@ -272,5 +274,153 @@ class LoginAPIView(APIView, UserStatusMixin):
             success=True,
             message="Login successful",
             data=data,
+            status_code=status.HTTP_200_OK
+        )
+
+
+
+
+
+@extend_schema(
+    tags=['Authentication'],
+    summary="Verify user account with token",
+    description="""
+### User Verification API
+This endpoint allows a user to verify their account using a 6-digit verification token sent to their email.
+
+**Behavior:**
+- Checks if the token exists and is linked to the user.
+- Checks if the token is expired.
+- Marks the user as verified if valid.
+- Returns meaningful error messages otherwise.
+
+**Responses:**
+- 200: Successful verification.
+- 400: Missing token or email.
+- 404: User or token not found.
+- 410: Token expired.
+""",
+    request=OpenApiExample(
+        name="Verification Request Example",
+        value={
+            "email": "user@example.com",
+            "token": "123456"
+        },
+        request_only=True
+    ),
+    responses={
+        200: OpenApiExample(
+            "Successful Verification",
+            value={
+                "success": True,
+                "message": "Account verified successfully",
+                "data": None,
+                "errors": None
+            }
+        ),
+        400: OpenApiExample(
+            "Missing Fields",
+            value={
+                "success": False,
+                "message": "Email and token are required",
+                "data": None,
+                "errors": None
+            }
+        ),
+        404: OpenApiExample(
+            "Invalid Token or Email",
+            value={
+                "success": False,
+                "message": "Invalid token or email",
+                "data": None,
+                "errors": None
+            }
+        ),
+        410: OpenApiExample(
+            "Expired Token",
+            value={
+                "success": False,
+                "message": "Verification token has expired",
+                "data": None,
+                "errors": None
+            }
+        ),
+    },
+    examples=[
+        OpenApiExample(
+            "User login Example",
+            description="Example request body to login to user",
+            value={                            
+                   
+                    "email": "gilbertnshimyimana11@gmail.com",
+                    "token": "123456"
+
+
+            }
+        )
+    ],
+    methods=["POST"]
+)
+class VerifyAccountAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        token_value = request.data.get("token")
+
+        if not email:
+            return api_response(
+                success=False,
+                message="Email   are required",
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        if not token_value:
+            return api_response(
+                success=False,
+                message="token are required",
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return api_response(
+                success=False,
+                message="Email does not exist",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            token = VerificationToken.objects.get(user=user, token=token_value)
+        except VerificationToken.DoesNotExist:
+            return api_response(
+                success=False,
+                message="Invalid verification Token",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        if token.is_expired():
+            return api_response(
+                success=False,
+                message="Verification token has expired",
+                data=None,
+                status_code=status.HTTP_410_GONE
+            )
+
+        # Mark user as verified
+        user.is_verified = True
+        user.save()
+
+        # Delete token after successful verification
+        token.delete()
+
+        return api_response(
+            success=True,
+            message="Account verified successfully",
+            data=None,
             status_code=status.HTTP_200_OK
         )

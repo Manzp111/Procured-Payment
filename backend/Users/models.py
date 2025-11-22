@@ -11,6 +11,14 @@ from django.core.validators import RegexValidator
 import random
 
 
+USER_ROLES = (
+    ("staff", "Staff"),
+    ("approver_lvl1", "Approver Level 1"),
+    ("approver_lvl2", "Approver Level 2"),
+    ("finance", "Finance"),
+    ("admin", "Admin"),
+)
+
 
 # PHONE NORMALIZATION FUNCTION
 
@@ -88,6 +96,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     profile_picture = models.ImageField(upload_to="profile_pics/", blank=True, null=True)
 
+    role = models.CharField(max_length=20, choices=USER_ROLES, default="staff")
+    registration_date = models.DateTimeField(default=timezone.now)
+
     is_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -95,8 +106,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
 
-    USERNAME_FIELD = "phone"
-    REQUIRED_FIELDS = ["email", "first_name", "last_name"]
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["phone", "first_name", "last_name"]
 
     objects = UserManager()
 
