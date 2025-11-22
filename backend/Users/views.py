@@ -81,7 +81,9 @@ class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = UserRegistrationSerializer(data=request.data)
+        serializer = UserRegistrationSerializer(data=request.data, context={"request": request})
+
+        # serializer = UserRegistrationSerializer(data=request.data)
 
         # Validate manually, no automatic exception
         serializer.is_valid(raise_exception=False)
@@ -94,6 +96,7 @@ class RegisterAPIView(APIView):
                 success=False,
                 message=first_msg[0] if isinstance(first_msg, list) else str(first_msg),
                 data=None,
+                errors=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
@@ -108,11 +111,14 @@ class RegisterAPIView(APIView):
             return api_response(
                 success=False,
                 message=str(e),
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
                 
             )
-
+        user_serializer = UserRegistrationSerializer(user, context={"request": request})
         return api_response(
             success=True,
-            message="User registered successfully",               
+            message="User registered successfully",  
+            data=user_serializer.data,             
             status_code=status.HTTP_201_CREATED
         )
