@@ -9,12 +9,18 @@ from decouple import config
 
 from datetime import timedelta
 
+import openai
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY =config('SECRET_KEY')
+OPENAI_API_KEY = config("OPENAI_API_KEY")
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -32,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'Users',
+    'procurement',
     'rest_framework',
     'drf_spectacular',
     'drf_spectacular_sidecar',

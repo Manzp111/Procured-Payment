@@ -8,7 +8,7 @@ from .models import User, VerificationToken
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
     # Fields to display in the list view
-    list_display = ('first_name', 'last_name', 'phone', 'email', 'is_verified', 'is_active', 'is_staff')
+    list_display = ('first_name', 'last_name', 'phone', 'email','role', 'is_verified', 'is_active', 'is_staff')
     list_filter = ('is_verified', 'is_active', 'is_staff')
     search_fields = ('phone', 'email', 'first_name', 'last_name')
     ordering = ('phone',)
