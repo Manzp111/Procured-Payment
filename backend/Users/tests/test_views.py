@@ -110,3 +110,75 @@ class RegisterAPIViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(response.data["success"])
         self.assertEqual(response.data["message"], "Password must be at least 8 characters long")
+
+
+
+
+
+
+class LoginAPIViewTest(APITestCase):
+
+    def setUp(self):
+        self.url = reverse("login")
+        self.user_password = "StrongPass@123"
+        self.user = User.objects.create_user(
+            email="testuser@example.com",
+            phone="0781234567",
+            first_name="Test",
+            last_name="User",
+            password=self.user_password,
+            is_verified=True,
+            is_active=True
+        )
+
+    def test_successful_login(self):
+        """Test login with correct credentials returns JWT tokens."""
+        data = {"email": self.user.email, "password": self.user_password}
+        response = self.client.post(self.url, data, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["message"], "Login successful")
+        self.assertIn("access", response.data["data"])
+        self.assertIn("refresh", response.data["data"])
+
+    def test_missing_email_or_password(self):
+        """Test login fails if email or password is missing."""
+        data = {"email": self.user.email}
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data["message"], "Email and password are required")
+
+    def test_email_does_not_exist(self):
+        """Test login fails if email is not found."""
+        data = {"email": "notfound@example.com", "password": "any"}
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data["message"], "Email does not exist")
+
+    def test_incorrect_password(self):
+        """Test login fails if password is wrong."""
+        data = {"email": self.user.email, "password": "WrongPass@123"}
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.data["message"], "Incorrect password")
+
+    def test_inactive_user(self):
+        """Test login fails if user is inactive."""
+        self.user.is_active = False
+        self.user.save()
+        data = {"email": self.user.email, "password": self.user_password}
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["message"], "User account is inactive")
+
+
+    def test_unverified_user(self):
+        """Test login fails if user is not verified."""
+        self.user.is_verified = False
+        self.user.save()
+        data = {"email": self.user.email, "password": self.user_password}
+        response = self.client.post(self.url, data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["message"], "User account is not verified")
+
