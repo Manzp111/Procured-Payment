@@ -1,59 +1,36 @@
 # requests/admin.py
-
 from django.contrib import admin
-from .models import PurchaseRequest, ApprovalLevel, ApprovalAction
+from .models import PurchaseRequest, ApprovalAction
 
-# -----------------------------
-# ApprovalLevel Admin
-# -----------------------------
-@admin.register(ApprovalLevel)
-class ApprovalLevelAdmin(admin.ModelAdmin):
-    list_display = ('level', 'name', 'approver_list', 'created_by', 'created_at')
-    search_fields = ('name',)
-    ordering = ('level',)
-    
-    def approver_list(self, obj):
-        return ", ".join([str(u) for u in obj.approvers.all()])
-    approver_list.short_description = "Approvers"
+# Inline for ApprovalAction to track all actions per request
+class ApprovalActionInline(admin.TabularInline):
+    model = ApprovalAction
+    extra = 0
+    readonly_fields = ('level', 'action', 'actor', 'comment', 'acted_at')
+    can_delete = False
+    ordering = ('acted_at',)
 
-# -----------------------------
-# PurchaseRequest Admin
-# -----------------------------
 @admin.register(PurchaseRequest)
 class PurchaseRequestAdmin(admin.ModelAdmin):
     list_display = (
-        'title', 'status', 'current_level', 'amount', 
+        'id', 'title', 'status', 'three_way_match_status', 'current_level', 
         'created_by', 'created_at', 'updated_at'
     )
-    list_filter = ('status', 'current_level', 'created_at')
-    search_fields = ('title', 'vendor_name', 'invoice_vendor_name')
-    readonly_fields = ('created_at', 'updated_at', 'current_level', 'three_way_match_status', 'discrepancy_details')
-    
-    fieldsets = (
-        ("Request Info", {
-            'fields': ('title', 'description', 'amount', 'status', 'current_level')
-        }),
-        ("Files", {
-            'fields': ('proforma', 'purchase_order', 'invoice', 'receipt')
-        }),
-        ("Vendor / AI Data", {
-            'fields': ('vendor_name', 'vendor_address', 'items_json', 'total_amount_extracted', 
-                       'invoice_vendor_name', 'invoice_items_json', 'invoice_total')
-        }),
-        ("Matching / Tolerance", {
-            'fields': ('three_way_match_status', 'discrepancy_details', 'amount_tolerance_percent', 'quantity_tolerance_percent')
-        }),
-        ("Audit Info", {
-            'fields': ('created_by', 'created_at', 'updated_at')
-        }),
+    list_filter = ('status', 'three_way_match_status', 'current_level', 'created_at')
+    search_fields = ('title', 'vendor_name', 'vendor_address', 'created_by__username')
+    readonly_fields = (
+        'total_amount_extracted', 'extraction_status', 
+        'invoice_total', 'invoice_extraction_status',
+        'three_way_match_status', 'discrepancy_details',
+        'created_at', 'updated_at'
     )
+  
+    ordering = ('-created_at',)
 
-# -----------------------------
-# ApprovalAction Admin
-# -----------------------------
+# Optional: register ApprovalAction separately if you want a dedicated view
 @admin.register(ApprovalAction)
 class ApprovalActionAdmin(admin.ModelAdmin):
-    list_display = ('request', 'level', 'action', 'actor', 'acted_at')
+    list_display = ('id', 'request', 'level', 'action', 'actor', 'acted_at')
     list_filter = ('action', 'level', 'acted_at')
-    search_fields = ('actor__username', 'request__title', 'comment')
-    readonly_fields = ('acted_at',)
+    search_fields = ('request__title', 'actor__username', 'comment')
+    readonly_fields = ('request', 'level', 'action', 'actor', 'comment', 'acted_at')

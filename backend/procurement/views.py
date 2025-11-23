@@ -14,6 +14,8 @@ from .serializers import (
 )
 from .permissions import IsStaff, IsApprover
 from Users.utils import api_response
+from django.shortcuts import get_object_or_404
+
 
 
 @extend_schema(tags=['Purchase Requests'])
@@ -119,7 +121,7 @@ class PurchaseRequestViewSet(ModelViewSet):
         # Trigger AI processing
         from .tasks import process_proforma
         try:
-            process_proforma(purchase_request.id)
+            process_proforma.delay(purchase_request.id)
         except Exception as e:
             print(f"AI processing error: {e}")
 
@@ -273,107 +275,124 @@ class PurchaseRequestViewSet(ModelViewSet):
             data=response.data,
             status_code=status.HTTP_200_OK
         )
-
     @extend_schema(
-        summary="Approve a purchase request",
-        description="""
-        Approvers can approve a PENDING request at their assigned level.
-        Final approval (level 2) automatically generates a Purchase Order.
-        """,
-        request=ApprovalActionSerializer,
-        responses={
-            200: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Request approved successfully.",
-                    "data": {"id": 1, "status": "APPROVED", "current_level": 2},
-                    "errors": None
-                },
-                response_only=True
-            ),
-            400: OpenApiExample(
-                "Already Processed",
-                value={
-                    "success": False,
-                    "message": "Request is already processed.",
-                    "data": None,
-                    "errors": None
-                },
-                response_only=True
-            )
-        }
-    )
+    tags=['Purchase Requests'],
+    summary="Approve a purchase request",
+    description="""
+    Approvers can approve a PENDING request at their assigned level.
+
+    - **Level 1** → Managers approve first
+    - **Level 2** → General Managers give final approval
+    - Final approval automatically triggers PDF Purchase Order generation
+    - Concurrency protection using `select_for_update()` row locks
+    """,
+    request=ApprovalActionSerializer,
+    responses={
+        200: OpenApiExample(
+            "Success",
+            value={
+                "success": True,
+                "message": "Request approved successfully.",
+                "data": {
+                    "id": 1,
+                    "status": "APPROVED",
+                    "current_level": 2,
+                    "purchase_order_url": "http://localhost:8000/media/purchase_orders/PO_1.pdf"
+                }
+            },
+            response_only=True
+        ),
+        400: OpenApiExample(
+            "Already Processed",
+            value={"success": False, "message": "Request is already processed."},
+            response_only=True
+        ),
+        403: OpenApiExample(
+            "Unauthorized",
+            value={"success": False, "message": "You are not authorized to approve at this level."},
+            response_only=True
+        )
+    }
+      )
+        
     @action(detail=True, methods=["patch"])
     def approve(self, request, pk=None):
-        purchase_request = self.get_object()
-
-        if purchase_request.status != 'PENDING':
-            return api_response(
-                success=False,
-                message="Request is already processed.",
-                data=None,
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Authorization: check if user is in current approval level
-        try:
-            current_level = purchase_request.current_level
-            # Note: In a real system, you'd link ApprovalLevel to PurchaseRequest
-            # For simplicity, assume level 1 = approver_lvl1, level 2 = approver_lvl2
-            if (current_level == 1 and request.user.role != 'manager') or \
-               (current_level == 2 and request.user.role != 'general_manager'):
-                return api_response(
-                    success=False,
-                    message="You are not authorized to approve at this level.",
-                    data=None,
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-        except Exception:
-            return api_response(
-                success=False,
-                message="Approval level configuration error.",
-                data=None,
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-        serializer = ApprovalActionSerializer(data=request.data)
-        if not serializer.is_valid():
-            return api_response(
-                success=False,
-                message="Invalid input",
-                data=None,
-                errors=serializer.errors,
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
 
         with transaction.atomic():
-            ApprovalAction.objects.create(
-                request=purchase_request,
-                level=purchase_request.current_level,
-                action='APPROVED',
-                actor=request.user,
-                comment=serializer.validated_data.get('comment', '')
+          
+            purchase_request = get_object_or_404(
+                PurchaseRequest.objects.select_for_update(),
+                id=pk
             )
 
-            if purchase_request.current_level == 2:
-                purchase_request.status = 'APPROVED'
-                purchase_request.save()
-                # Trigger PO generation
-                from .tasks import generate_purchase_order
-                try:
-                    generate_purchase_order.delay(purchase_request.id)
-                except Exception as e:
-                    print(f"PO generation error: {e}")
-            else:
-                purchase_request.current_level += 1
+          
+            if purchase_request.status != "PENDING":
+                return api_response(
+                    success=False,
+                    message="Request is already processed.",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+            current_level = purchase_request.current_level
+            user_role = request.user.role
+
+           
+            required_role = "manager" if current_level == 1 else "general_manager"
+
+            if user_role != required_role:
+                return api_response(
+                    success=False,
+                    message=f"Only {required_role.replace('_', ' ')}s can approve at level {current_level}.",
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
+          
+            serializer = ApprovalActionSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            
+            existing = ApprovalAction.objects.filter(
+            request=purchase_request,
+            level=current_level,
+            actor=request.user
+                 ).exists()
+
+            if existing:
+                return api_response(
+                    success=False,
+                    message="You have already approved this request at this level.",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+
+            
+            ApprovalAction.objects.create(
+                request=purchase_request,
+                level=current_level,
+                action="APPROVED",
+                actor=request.user,
+                comment=serializer.validated_data.get("comment", "")
+            )
+
+           
+            if current_level == 2:
+                # FINAL APPROVAL
+                purchase_request.status = "APPROVED"
                 purchase_request.save()
 
-        serializer = self.get_serializer(purchase_request)
+                
+                from .tasks import generate_purchase_order
+                generate_purchase_order.delay(purchase_request.id)
+
+            else:
+                # LEVEL 1 → LEVEL 2
+                purchase_request.current_level = 2
+                purchase_request.save()
+
+        
         return api_response(
             success=True,
             message="Request approved successfully.",
-            data=serializer.data,
+            data=self.get_serializer(purchase_request).data,
             status_code=status.HTTP_200_OK
         )
 
@@ -396,15 +415,6 @@ class PurchaseRequestViewSet(ModelViewSet):
     )
     @action(detail=True, methods=["patch"])
     def reject(self, request, pk=None):
-        purchase_request = self.get_object()
-
-        if purchase_request.status != 'PENDING':
-            return api_response(
-                success=False,
-                message="Request is already processed.",
-                data=None,
-                status_code=status.HTTP_400_BAD_REQUEST
-            )
 
         serializer = ApprovalActionSerializer(data=request.data)
         if not serializer.is_valid():
@@ -416,7 +426,38 @@ class PurchaseRequestViewSet(ModelViewSet):
                 status_code=status.HTTP_400_BAD_REQUEST
             )
 
+
+
         with transaction.atomic():
+            # 🔒 LOCK FOR CONCURRENCY SAFETY
+            purchase_request = get_object_or_404(
+                PurchaseRequest.objects.select_for_update(),
+                id=pk
+            )
+            current_level = purchase_request.current_level
+            existing = ApprovalAction.objects.filter(
+            request=purchase_request,
+            level=current_level,
+            actor=request.user
+            ).exists()
+
+            if existing:
+                return api_response(
+                    success=False,
+                    message="You have already acted on this request at this level.",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+           
+            if purchase_request.status != 'PENDING':
+                return api_response(
+                    success=False,
+                    message="Request is already processed.",
+                    data=None,
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+
+           
             ApprovalAction.objects.create(
                 request=purchase_request,
                 level=purchase_request.current_level,
@@ -424,14 +465,17 @@ class PurchaseRequestViewSet(ModelViewSet):
                 actor=request.user,
                 comment=serializer.validated_data.get('comment', '')
             )
+
+           
             purchase_request.status = 'REJECTED'
             purchase_request.save()
 
-        serializer = self.get_serializer(purchase_request)
+        response_data = self.get_serializer(purchase_request).data
+
         return api_response(
             success=True,
             message="Request rejected successfully.",
-            data=serializer.data,
+            data=response_data,
             status_code=status.HTTP_200_OK
         )
 

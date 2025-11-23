@@ -32,12 +32,13 @@ html>
             </tr>
         </thead>
         <tbody>
-            {% for item in purchase_request.items_json %}
+            {% for item in items %}
+
             <tr>
                 <td>{{ item.name }}</td>
                 <td>{{ item.quantity }}</td>
                 <td>${{ item.price }}</td>
-                <td>${{ item.price|floatformat:2|multiply:item.quantity }}</td>
+                 <td>{{ item.total_price }}</td>
             </tr>
             {% endfor %}
         </tbody>
