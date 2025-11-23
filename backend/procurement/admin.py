@@ -1,53 +1,59 @@
+# requests/admin.py
+
 from django.contrib import admin
-from .models import PurchaseRequest, Approval
+from .models import PurchaseRequest, ApprovalLevel, ApprovalAction
 
-# Inline approvals inside purchase request
-class ApprovalInline(admin.TabularInline):
-    model = Approval
-    extra = 0
-    readonly_fields = ("approved_at",)
-    fields = ("approved_by", "status", "comment", "approved_at")
-    can_delete = False
+# -----------------------------
+# ApprovalLevel Admin
+# -----------------------------
+@admin.register(ApprovalLevel)
+class ApprovalLevelAdmin(admin.ModelAdmin):
+    list_display = ('level', 'name', 'approver_list', 'created_by', 'created_at')
+    search_fields = ('name',)
+    ordering = ('level',)
+    
+    def approver_list(self, obj):
+        return ", ".join([str(u) for u in obj.approvers.all()])
+    approver_list.short_description = "Approvers"
 
-
+# -----------------------------
+# PurchaseRequest Admin
+# -----------------------------
 @admin.register(PurchaseRequest)
 class PurchaseRequestAdmin(admin.ModelAdmin):
-    list_display = ("title", "status", "created_by", "amount", "created_at", "updated_at")
-    list_filter = ("status", "created_at", "updated_at")
-    search_fields = ("title", "description", "created_by__email", "created_by__first_name", "created_by__last_name")
-    ordering = ("-created_at",)
-    readonly_fields = ("created_at", "updated_at", "purchase_order")
-    inlines = [ApprovalInline]
-
+    list_display = (
+        'title', 'status', 'current_level', 'amount', 
+        'created_by', 'created_at', 'updated_at'
+    )
+    list_filter = ('status', 'current_level', 'created_at')
+    search_fields = ('title', 'vendor_name', 'invoice_vendor_name')
+    readonly_fields = ('created_at', 'updated_at', 'current_level', 'three_way_match_status', 'discrepancy_details')
+    
     fieldsets = (
         ("Request Info", {
-            "fields": ("title", "description", "amount", "status")
+            'fields': ('title', 'description', 'amount', 'status', 'current_level')
         }),
         ("Files", {
-            "fields": ("proforma", "purchase_order")
+            'fields': ('proforma', 'purchase_order', 'invoice', 'receipt')
         }),
-        ("Creator Info", {
-            "fields": ("created_by",)
+        ("Vendor / AI Data", {
+            'fields': ('vendor_name', 'vendor_address', 'items_json', 'total_amount_extracted', 
+                       'invoice_vendor_name', 'invoice_items_json', 'invoice_total')
         }),
-        ("Timestamps", {
-            "fields": ("created_at", "updated_at")
+        ("Matching / Tolerance", {
+            'fields': ('three_way_match_status', 'discrepancy_details', 'amount_tolerance_percent', 'quantity_tolerance_percent')
         }),
-    )
-
-
-@admin.register(Approval)
-class ApprovalAdmin(admin.ModelAdmin):
-    list_display = ("purchase_request", "status", "approved_by", "approved_at")
-    list_filter = ("status", "approved_at")
-    search_fields = ("purchase_request__title", "approved_by__email", "comment")
-    readonly_fields = ("approved_at",)
-    ordering = ("-approved_at",)
-
-    fieldsets = (
-        ("Approval Info", {
-            "fields": ("purchase_request", "approved_by", "status", "comment")
-        }),
-        ("Timestamp", {
-            "fields": ("approved_at",)
+        ("Audit Info", {
+            'fields': ('created_by', 'created_at', 'updated_at')
         }),
     )
+
+# -----------------------------
+# ApprovalAction Admin
+# -----------------------------
+@admin.register(ApprovalAction)
+class ApprovalActionAdmin(admin.ModelAdmin):
+    list_display = ('request', 'level', 'action', 'actor', 'acted_at')
+    list_filter = ('action', 'level', 'acted_at')
+    search_fields = ('actor__username', 'request__title', 'comment')
+    readonly_fields = ('acted_at',)

@@ -1,7 +1,10 @@
-# procurement/urls.py
-from django.urls import path
-from .views import CreatePurchaseRequestAPIView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import PurchaseRequestViewSet
+
+router = DefaultRouter()
+router.register(r'', PurchaseRequestViewSet, basename='purchase-request')
 
 urlpatterns = [
-    path("requests/", CreatePurchaseRequestAPIView.as_view(), name="create-request"),
+    path('', include(router.urls)),
 ]

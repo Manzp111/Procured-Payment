@@ -113,3 +113,62 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         user = User(**validated_data)
         user.set_password(password)
         return user
+
+
+
+
+class UserSerializer(serializers.ModelSerializer):
+    """
+    Basic user serializer for displaying user info in related objects
+    """
+    full_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = User
+        fields = ['email', 'phone', 'first_name', 'last_name', 'full_name', 'role']
+        read_only_fields = ['email', 'phone', 'first_name', 'last_name', 'full_name', 'role']
+    
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}".strip()
+
+# class UserDetailSerializer(serializers.ModelSerializer):
+#     """
+#     Detailed user serializer for user profile views
+#     """
+#     full_name = serializers.SerializerMethodField()
+#     profile_picture_url = serializers.SerializerMethodField()
+    
+#     class Meta:
+#         model = User
+#         fields = [
+#             'id', 'email', 'phone', 'first_name', 'last_name', 'full_name',
+#             'role', 'is_verified', 'is_active', 'is_staff',
+#             'registration_date', 'last_login', 'profile_picture_url'
+#         ]
+#         read_only_fields = [
+#             'id', 'email', 'phone', 'registration_date', 'last_login', 
+#             'is_verified', 'is_active', 'is_staff'
+#         ]
+    
+#     def get_full_name(self, obj):
+#         return f"{obj.first_name} {obj.last_name}".strip()
+    
+#     def get_profile_picture_url(self, obj):
+#         request = self.context.get('request')
+#         if obj.profile_picture and hasattr(obj.profile_picture, 'url'):
+#             return request.build_absolute_uri(obj.profile_picture.url)
+#         return None
+
+# class UserApprovalSerializer(serializers.ModelSerializer):
+#     """
+#     Minimal serializer for approval tracking - shows who approved/rejected requests
+#     """
+#     full_name = serializers.SerializerMethodField()
+    
+#     class Meta:
+#         model = User
+#         fields = ['id', 'full_name', 'email', 'role']
+#         read_only_fields = ['id', 'full_name', 'email', 'role']
+    
+#     def get_full_name(self, obj):
+#         return f"{obj.first_name} {obj.last_name}".strip()

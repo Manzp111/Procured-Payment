@@ -12,9 +12,9 @@ import random
 
 
 USER_ROLES = (
-    ("staff", "Staff"),
-    ("approver_lvl1", "Approver Level 1"),
-    ("approver_lvl2", "Approver Level 2"),
+   ("staff", "Staff"),
+    ("manager", "Approval Level 1"),            
+    ("general_manager", "Approval Level 2"),
     ("finance", "Finance"),
     ("admin", "Admin"),
 )

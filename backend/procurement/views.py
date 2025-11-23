@@ -1,117 +1,508 @@
-from rest_framework.views import APIView
+
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import status, permissions
-from drf_spectacular.utils import (
-    extend_schema,
-    OpenApiParameter,
-    OpenApiExample
+from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
+from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
+from django.db import transaction
+from .models import PurchaseRequest, ApprovalAction
+from .serializers import (
+    PurchaseRequestSerializer,
+    ReceiptUploadSerializer,
+    ApprovalActionSerializer
 )
-from drf_spectacular.types import OpenApiTypes
+from .permissions import IsStaff, IsApprover
+from Users.utils import api_response
 
-import pdfplumber
-import pytesseract
-from PIL import Image
-import tempfile
-import os
-import openai
 
-class CreatePurchaseRequestAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+@extend_schema(tags=['Purchase Requests'])
+class PurchaseRequestViewSet(ModelViewSet):
+    serializer_class = PurchaseRequestSerializer
+    parser_classes = (MultiPartParser, FormParser)  # Enable file uploads
+
+    def get_permissions(self):
+        if self.action == 'create':
+            return [IsStaff()]
+        elif self.action in ['approve', 'reject']:
+            return [IsApprover()]
+        elif self.action == 'submit_receipt':
+            return [IsStaff()]
+        elif self.action in ['update', 'partial_update']:
+            return [IsStaff()]
+        return []  # List/Retrieve use get_queryset filtering
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = PurchaseRequest.objects.select_related('created_by').prefetch_related('actions')
+
+        if user.role == 'staff':
+            return queryset.filter(created_by=user)
+        elif user.role == 'manager':
+            return queryset.filter(status='PENDING',current_level=1)
+        elif user.role == 'general_manager':
+            return queryset.filter(status='PENDING',current_level=2)
+        
+        elif user.role == 'finance':
+            return queryset.filter(status='APPROVED')
+        return queryset  # Admin sees all
 
     @extend_schema(
-        summary="Create Purchase Request from Uploaded Proforma Invoice",
-        description="Upload a PDF/Image proforma and extract structured data using OpenAI.",
+        summary="Create a new purchase request",
+        description="""
+        Staff can submit a purchase request with a proforma invoice (PDF/image).
+        The system automatically extracts vendor, items, prices, and terms using AI.
+        
+        **File Requirements**:
+        - Format: PDF, JPG, JPEG, PNG
+        - Max size: 5MB
+        """,
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'title': {'type': 'string', 'example': 'Marketing Conference Registration'},
+                    'description': {'type': 'string', 'example': 'Annual tech event in Kigali'},
+                    'amount': {'type': 'number', 'format': 'float', 'example': 350.00},
+                    'proforma': {'type': 'string', 'format': 'binary', 'description': 'Proforma invoice'}
+                },
+                'required': ['title', 'description', 'amount', 'proforma']
+            }
+        },
+        responses={
+            201: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Purchase request created. Proforma processing started.",
+                    "data": {
+                        "id": 1,
+                        "title": "Marketing Conference Registration",
+                        "description": "Annual tech event in Kigali",
+                        "amount": "350.00",
+                        "status": "PENDING",
+                        "proforma_url": "http://localhost:8000/media/proformas/proforma.pdf",
+                        "extraction_status": "PENDING",
+                        "created_at": "2025-11-23T14:30:00Z"
+                    },
+                    "errors": None
+                },
+                response_only=True
+            ),
+            400: OpenApiExample(
+                "Validation Error",
+                value={
+                    "success": False,
+                    "message": "Invalid file type. Allowed: pdf, jpg, jpeg, png",
+                    "data": None,
+                    "errors": {"proforma": ["Invalid file type. Allowed: pdf, jpg, jpeg, png"]}
+                },
+                response_only=True
+            )
+        }
+    )
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            first_field = next(iter(serializer.errors))
+            first_msg = serializer.errors[first_field]
+            return api_response(
+                success=False,
+                message=first_msg[0] if isinstance(first_msg, list) else str(first_msg),
+                data=None,
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        purchase_request = serializer.save(created_by=request.user)
+
+        # Trigger AI processing
+        from .tasks import process_proforma
+        try:
+            process_proforma(purchase_request.id)
+        except Exception as e:
+            print(f"AI processing error: {e}")
+
+        return api_response(
+            success=True,
+            message="Purchase request created. Proforma processing started.",
+            data=serializer.data,
+            status_code=status.HTTP_201_CREATED
+        )
+
+    @extend_schema(
+        summary="List purchase requests",
+        description="""
+        Returns requests filtered by user role:
+        - **Staff**: only their own requests
+        - **Approvers**: only PENDING requests
+        - **Finance**: only APPROVED requests
+        
+        Supports filtering by status (`?status=pending`).
+        """,
         parameters=[
             OpenApiParameter(
-                name="title",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Title of purchase request",
-                required=True
-            ),
-            OpenApiParameter(
-                name="department",
-                type=OpenApiTypes.STR,
-                location="form",
-                description="Department requesting purchase",
-                required=True
-            ),
-            OpenApiParameter(
-                name="proforma",
-                type=OpenApiTypes.BINARY,
-                location="form",
-                description="Proforma invoice file (PDF or Image)",
-                required=True
-            ),
-        ],
-        examples=[
-            OpenApiExample(
-                "Sample Request",
-                summary="Example with title and department",
-                value={"title": "Laptop Purchase", "department": "IT Department"},
-            ),
-        ],
-    )
-    def post(self, request):
-        serializer = PurchaseRequestSerializer(data=request.data)
-
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            for chunk in proforma.chunks():
-                tmp.write(chunk)
-            temp_path = tmp.name
-
-        extracted_text = ""
-        try:
-            if proforma.name.lower().endswith(".pdf"):
-                with pdfplumber.open(temp_path) as pdf:
-                    extracted_text = "\n".join([page.extract_text() or "" for page in pdf.pages])
-            else:  # assume image
-                img = Image.open(temp_path)
-                extracted_text = pytesseract.image_to_string(img)
-        except Exception as e:
-            os.remove(temp_path)
-            return Response({"success": False, "message": str(e)}, status=500)
-        finally:
-            os.remove(temp_path)
-
-        # Send extracted text to OpenAI to get structured data
-        prompt = f"""
-        Extract the following information from this proforma invoice text:
-
-        {extracted_text}
-
-        Return JSON with these keys:
-        - supplier_name
-        - item_list (array of items with name, quantity, unit_price)
-        - total_amount
-        - currency
-        - date
-        - reference_number
-        """
-
-        try:
-            client = openai.OpenAI()
-            ai_response = client.chat.completions.create(
-                model="gpt-4.1-mini",
-                messages=[{"role": "user", "content": prompt}],
+                name='status',
+                description='Filter by request status',
+                required=False,
+                type=str,
+                examples=[
+                    OpenApiExample('Pending', value='pending'),
+                    OpenApiExample('Approved', value='approved')
+                ]
             )
-            extracted_data = ai_response.choices[0].message["content"]
-        except Exception as e:
-            return Response(
-                {"success": False, "message": "OpenAI error", "error": str(e)},
-                status=500,
-            )
-
-        return Response(
-            {
-                "success": True,
-                "message": "Purchase request created",
-                "data": {
-                    "title": title,
-                    "department": department,
-                    "extracted_data": extracted_data,
+        ],
+        responses={
+            200: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Requests retrieved successfully",
+                    "data": [
+                        {
+                            "id": 1,
+                            "title": "Laptop for Dev",
+                            "amount": "2500.00",
+                            "status": "PENDING",
+                            "proforma_url": "http://...",
+                            "created_by": {"first_name": "John", "last_name": "Doe"}
+                        }
+                    ],
+                    "errors": None
                 },
-            },
-            status=201,
+                response_only=True
+            )
+        }
+    )
+    def list(self, request, * args, **kwargs):
+        response = super().list(request, *args, **kwargs)
+        return api_response(
+            success=True,
+            message="Requests retrieved successfully",
+            data=response.data,
+            status_code=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Retrieve a purchase request",
+        description="""
+        Get full details of a purchase request, including:
+        - AI-extracted vendor and items
+        - Approval history
+        - File URLs (proforma, PO, receipt, invoice)
+        """,
+        responses={
+            200: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Request retrieved successfully",
+                    "data": {
+                        "id": 1,
+                        "title": "Office Supplies",
+                        "vendor_name": "Tech Solutions Ltd",
+                        "items_json": [{"name": "Laptop", "price": 2500, "quantity": 1}],
+                        "status": "PENDING",
+                        "current_level": 1,
+                        "proforma_url": "http://localhost:8000/media/proformas/proforma.pdf",
+                        "created_by": {"first_name": "John", "last_name": "Doe", "email": "john@ist.com"},
+                        "actions": [
+                            {
+                                "actor": "Jane Approver",
+                                "action": "APPROVED",
+                                "level": 1,
+                                "acted_at": "2025-11-23T15:00:00Z"
+                            }
+                        ]
+                    },
+                    "errors": None
+                },
+                response_only=True
+            )
+        }
+    )
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        return api_response(
+            success=True,
+            message="Request retrieved successfully",
+            data=response.data,
+            status_code=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Update a pending purchase request",
+        description="Staff can update their own PENDING requests (title, description, amount).",
+        request=PurchaseRequestSerializer,
+        responses={
+            200: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Request updated successfully.",
+                    "data": {"id": 1, "title": "Updated Title", "status": "PENDING"},
+                    "errors": None
+                },
+                response_only=True
+            ),
+            403: OpenApiExample(
+                "Permission Denied",
+                value={
+                    "success": False,
+                    "message": "You can only update your own pending requests.",
+                    "data": None,
+                    "errors": None
+                },
+                response_only=True
+            )
+        }
+    )
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.created_by != request.user or instance.status != 'PENDING':
+            return api_response(
+                success=False,
+                message="You can only update your own pending requests.",
+                data=None,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+        response = super().update(request, *args, **kwargs)
+        return api_response(
+            success=True,
+            message="Request updated successfully.",
+            data=response.data,
+            status_code=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Approve a purchase request",
+        description="""
+        Approvers can approve a PENDING request at their assigned level.
+        Final approval (level 2) automatically generates a Purchase Order.
+        """,
+        request=ApprovalActionSerializer,
+        responses={
+            200: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Request approved successfully.",
+                    "data": {"id": 1, "status": "APPROVED", "current_level": 2},
+                    "errors": None
+                },
+                response_only=True
+            ),
+            400: OpenApiExample(
+                "Already Processed",
+                value={
+                    "success": False,
+                    "message": "Request is already processed.",
+                    "data": None,
+                    "errors": None
+                },
+                response_only=True
+            )
+        }
+    )
+    @action(detail=True, methods=["patch"])
+    def approve(self, request, pk=None):
+        purchase_request = self.get_object()
+
+        if purchase_request.status != 'PENDING':
+            return api_response(
+                success=False,
+                message="Request is already processed.",
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Authorization: check if user is in current approval level
+        try:
+            current_level = purchase_request.current_level
+            # Note: In a real system, you'd link ApprovalLevel to PurchaseRequest
+            # For simplicity, assume level 1 = approver_lvl1, level 2 = approver_lvl2
+            if (current_level == 1 and request.user.role != 'manager') or \
+               (current_level == 2 and request.user.role != 'general_manager'):
+                return api_response(
+                    success=False,
+                    message="You are not authorized to approve at this level.",
+                    data=None,
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+        except Exception:
+            return api_response(
+                success=False,
+                message="Approval level configuration error.",
+                data=None,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        serializer = ApprovalActionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_response(
+                success=False,
+                message="Invalid input",
+                data=None,
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            ApprovalAction.objects.create(
+                request=purchase_request,
+                level=purchase_request.current_level,
+                action='APPROVED',
+                actor=request.user,
+                comment=serializer.validated_data.get('comment', '')
+            )
+
+            if purchase_request.current_level == 2:
+                purchase_request.status = 'APPROVED'
+                purchase_request.save()
+                # Trigger PO generation
+                from .tasks import generate_purchase_order
+                try:
+                    generate_purchase_order.delay(purchase_request.id)
+                except Exception as e:
+                    print(f"PO generation error: {e}")
+            else:
+                purchase_request.current_level += 1
+                purchase_request.save()
+
+        serializer = self.get_serializer(purchase_request)
+        return api_response(
+            success=True,
+            message="Request approved successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Reject a purchase request",
+        description="Approvers can reject a PENDING request at any level. Rejection is final and stops the workflow.",
+        request=ApprovalActionSerializer,
+        responses={
+            200: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Request rejected successfully.",
+                    "data": {"id": 1, "status": "REJECTED"},
+                    "errors": None
+                },
+                response_only=True
+            )
+        }
+    )
+    @action(detail=True, methods=["patch"])
+    def reject(self, request, pk=None):
+        purchase_request = self.get_object()
+
+        if purchase_request.status != 'PENDING':
+            return api_response(
+                success=False,
+                message="Request is already processed.",
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = ApprovalActionSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_response(
+                success=False,
+                message="Invalid input",
+                data=None,
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            ApprovalAction.objects.create(
+                request=purchase_request,
+                level=purchase_request.current_level,
+                action='REJECTED',
+                actor=request.user,
+                comment=serializer.validated_data.get('comment', '')
+            )
+            purchase_request.status = 'REJECTED'
+            purchase_request.save()
+
+        serializer = self.get_serializer(purchase_request)
+        return api_response(
+            success=True,
+            message="Request rejected successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+    @extend_schema(
+        summary="Submit a receipt for an approved request",
+        description="Staff can upload a receipt after a request is APPROVED. Triggers 3-way matching validation.",
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'receipt': {'type': 'string', 'format': 'binary', 'description': 'Receipt file (PDF/image)'}
+                },
+                'required': ['receipt']
+            }
+        },
+        responses={
+            200: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Receipt submitted successfully.",
+                    "data": {"receipt_url": "http://localhost:8000/media/receipts/receipt.pdf"},
+                    "errors": None
+                },
+                response_only=True
+            )
+        }
+    )
+    @action(detail=True, methods=["post"])
+    def submit_receipt(self, request, pk=None):
+        purchase_request = self.get_object()
+
+        if purchase_request.created_by != request.user:
+            return api_response(
+                success=False,
+                message="You can only submit receipts for your own requests.",
+                data=None,
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        if purchase_request.status != 'APPROVED':
+            return api_response(
+                success=False,
+                message="Receipt can only be submitted for approved requests.",
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = ReceiptUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_response(
+                success=False,
+                message="Invalid receipt file.",
+                data=None,
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        purchase_request.receipt = serializer.validated_data['receipt']
+        purchase_request.save()
+
+        # Optional: trigger receipt validation
+        from .tasks import validate_receipt
+        try:
+            validate_receipt.delay(purchase_request.id)
+        except Exception as e:
+            print(f"Receipt validation error: {e}")
+
+        return api_response(
+            success=True,
+            message="Receipt submitted successfully.",
+            data={"receipt_url": request.build_absolute_uri(purchase_request.receipt.url)},
+            status_code=status.HTTP_200_OK
         )
