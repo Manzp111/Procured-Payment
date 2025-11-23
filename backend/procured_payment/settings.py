@@ -20,6 +20,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY =config('SECRET_KEY')
 OPENAI_API_KEY = config("OPENAI_API_KEY")
+FIELD_ENCRYPTION_KEY = config("FIELD_ENCRYPTION_KEY")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'Users',
+    'corsheaders',
     'procurement',
     'rest_framework',
     'drf_spectacular',
@@ -45,6 +47,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware', 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -78,11 +81,18 @@ WSGI_APPLICATION = 'procured_payment.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+from decouple import config
+import dj_database_url
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.parse(config("DATABASE_URL"))
 }
 
 
@@ -152,6 +162,10 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Procured Payment Documentation',
@@ -175,3 +189,12 @@ EMAIL_USE_SSL = config('EMAIL_USE_SSL', default=False, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL')
+
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",   # Vite frontend
+    "http://127.0.0.1:5174", 
+    "http://127.0.0.1:3000",
+  
+]          # For development
+CORS_ALLOWED_ORIGINS_ALL=True
