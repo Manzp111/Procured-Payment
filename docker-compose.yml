@@ -4,25 +4,35 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: >
-      sh -c "./wait-for-it.sh db:5432 -- python manage.py runserver 0.0.0.0:8000"
+    command: ./wait-for-it.sh db:5432 -- python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
     ports:
       - "8000:8000"
     depends_on:
       - db
+      - redis
+    env_file:
+      - .env
 
   celery:
     build:
-      context: ./backend  # adjust if Dockerfile is inside here
+      context: ./backend
       dockerfile: Dockerfile
     command: celery -A procured_payment worker --loglevel=info
     volumes:
       - ./backend:/app
     depends_on:
-      - web
       - db
+      - redis
+    env_file:
+      - .env
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
 
   db:
     image: postgres:15
@@ -32,3 +42,4 @@ services:
       POSTGRES_PASSWORD: your_db_password
     ports:
       - "5432:5432"
+    restart: unless-stopped
