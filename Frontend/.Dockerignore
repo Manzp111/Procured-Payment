@@ -1,20 +1,24 @@
-# 1. Use official Node image
-FROM node:20-alpine
+# Node modules (we'll install inside container)
+node_modules
+npm-debug.log
+yarn-error.log
+pnpm-lock.yaml
+package-lock.json
 
-# 2. Set working directory
-WORKDIR /app
+# Vite cache
+.vite
+/dist
 
-# 3. Copy package.json and package-lock.json
-COPY package*.json ./
+# OS or editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.idea
+.vscode
 
-# 4. Install dependencies
-RUN npm install
-
-# 5. Copy all source code
-COPY . .
-
-# 6. Expose port Vite uses
-EXPOSE 5173
-
-# 7. Run dev server
-CMD ["npm", "run", "dev", "--", "--host"]
+# Env files (if you don’t want to copy)
+.env
+.env.local
+.env.development
+.env.production

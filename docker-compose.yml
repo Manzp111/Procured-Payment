@@ -1,13 +1,12 @@
-version: "3.9"
-
 services:
   web:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ./wait-for-it.sh db:5432 -- python manage.py runserver 0.0.0.0:8000
-    volumes:
-      - ./backend:/app
+    command: gunicorn procured_payment.wsgi:application --bind 0.0.0.0:8000
+    # Optional: comment out volumes to avoid overwriting entrypoint.sh
+    # volumes:
+    #   - ./backend:/app
     ports:
       - "8000:8000"
     depends_on:
@@ -21,8 +20,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: celery -A procured_payment worker --loglevel=info
-    volumes:
-      - ./backend:/app
+    # volumes:
+    #   - ./backend:/app
     depends_on:
       - db
       - redis
@@ -33,12 +32,12 @@ services:
     build:
       context: ./Frontend
       dockerfile: Dockerfile
-    command: npm run dev --host 0.0.0.0
-    volumes:
-      - ./Frontend:/app
-      - /app/node_modules
+    # If using dev server
+    command: npm run dev -- --host 0.0.0.0
+    # volumes:
+    #   - ./Frontend:/app
     ports:
-      - "5173:5173"   # default Vite dev server port
+      - "5173:5173"
     depends_on:
       - web
     env_file:
@@ -55,8 +54,7 @@ services:
     environment:
       POSTGRES_DB: ist_db
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Ng635188!
+      POSTGRES_PASSWORD: "gilbert123!"
     ports:
       - "5432:5432"
     restart: unless-stopped
-

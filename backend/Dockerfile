@@ -1,8 +1,9 @@
+# backend/Dockerfile
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install WeasyPrint system dependencies (Debian ≥ 11)
+# Install system dependencies (WeasyPrint, etc.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
@@ -18,24 +19,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python deps
-COPY requirements.txt .
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy project files
 COPY . .
 
-# Copy wait-for-it and entrypoint scripts
-COPY wait-for-it.sh .
-COPY entrypoint.sh .
-
-# Make scripts executable
-RUN chmod +x ./wait-for-it.sh ./entrypoint.sh
+COPY wait-for-it.sh entrypoint.sh ./
+RUN chmod +x wait-for-it.sh entrypoint.sh
 
 EXPOSE 8000
 
 # Set entrypoint
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-# Default command (will be executed by entrypoint)
-CMD ["gunicorn", "IST.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Default command
+CMD ["gunicorn", "procured_payment.wsgi:application", "--bind", "0.0.0.0:8000"]

@@ -84,11 +84,11 @@ import os
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', 'ist_db'),
-        'USER': config('DB_USER', 'Ngilbert'),
-        'PASSWORD': config('DB_PASSWORD', 'Ng635188!'),
-        'HOST': config('DB_HOST', 'db'),  # <-- Docker service name
-        'PORT': config('DB_PORT', '5432'),
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),  # <-- Docker service name
+        'PORT': config('DB_PORT'),
     }
 }
 
