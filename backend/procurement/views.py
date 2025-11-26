@@ -7,6 +7,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiParameter
 from django.db import transaction
 from .models import PurchaseRequest, ApprovalAction
+from rest_framework.permissions import IsAuthenticated
+from django.db import models
 from .serializers import (
     PurchaseRequestSerializer,
     ReceiptUploadSerializer,
@@ -15,39 +17,102 @@ from .serializers import (
 from .permissions import IsStaff, IsApprover
 from Users.utils import api_response
 from django.shortcuts import get_object_or_404
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
+
+class StandardResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'  # Allow clients to set page size
+    max_page_size = 100
 
 
 
 @extend_schema(tags=['Purchase Requests'])
 class PurchaseRequestViewSet(ModelViewSet):
     serializer_class = PurchaseRequestSerializer
+    permission_classes=[IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)  # Enable file uploads
 
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    # filterset_fields = ['status', 'current_level', 'created_by', 'created_at']
+    filterset_fields = {
+    'status': ['exact', 'iexact'],
+    'current_level': ['exact'],
+    'created_by': ['exact'],
+    'created_at': ['exact'],
+}
+
+    search_fields = ['title', 'description', 'vendor_name']
+    ordering_fields = ['created_at', 'amount', 'current_level', 'status']
+    ordering = ['-created_at']
+    pagination_class = StandardResultsSetPagination
+    
     def get_permissions(self):
+        """
+        Require authentication for all actions. Use custom permissions
+        for specific actions like create, approve, reject, etc.
+        """
+        # Ensure user is logged in for all actions
+        permissions = [IsAuthenticated()]
+
+        # Add custom permissions based on action
         if self.action == 'create':
-            return [IsStaff()]
+            permissions.append(IsStaff())
         elif self.action in ['approve', 'reject']:
-            return [IsApprover()]
+            permissions.append(IsApprover())
         elif self.action == 'submit_receipt':
-            return [IsStaff()]
+            permissions.append(IsStaff())
         elif self.action in ['update', 'partial_update']:
-            return [IsStaff()]
-        return []  # List/Retrieve use get_queryset filtering
+            permissions.append(IsStaff())
+
+        return permissions
+    
+
 
     def get_queryset(self):
         user = self.request.user
         queryset = PurchaseRequest.objects.select_related('created_by').prefetch_related('actions')
 
+        # Role-based filtering
         if user.role == 'staff':
-            return queryset.filter(created_by=user)
+            queryset = queryset.filter(created_by=user)
         elif user.role == 'manager':
-            return queryset.filter(status='PENDING',current_level=1)
+            queryset = queryset.filter(current_level=1)
         elif user.role == 'general_manager':
-            return queryset.filter(status='PENDING',current_level=2)
-        
+            queryset = queryset.filter(current_level=2)
         elif user.role == 'finance':
-            return queryset.filter(status='APPROVED')
-        return queryset  # Admin sees all
+            queryset = queryset.filter(status='APPROVED')
+
+        # Status filter
+        status_param = self.request.query_params.get('status')
+        if status_param and status_param.lower() != 'all':
+            queryset = queryset.filter(status__iexact=status_param)
+
+        # Approved/reviewed filter
+        approved_by_me = self.request.query_params.get('approved_by_me')
+        if approved_by_me in ['0', '1'] and user.role in ['manager', 'general_manager']:
+            queryset = queryset.annotate(
+                has_reviewed=models.Exists(
+                    ApprovalAction.objects.filter(
+                        request=models.OuterRef('pk'),
+                        actor=user,
+                        level=models.OuterRef('current_level'),
+                        action__in=['APPROVED', 'REJECTED']
+                    )
+                )
+            )
+            if approved_by_me == '1':
+                queryset = queryset.filter(has_reviewed=True)
+            else:
+                queryset = queryset.filter(has_reviewed=False)
+
+        return queryset.distinct()
+
+
+
+
 
     @extend_schema(
         summary="Create a new purchase request",
@@ -143,17 +208,21 @@ class PurchaseRequestViewSet(ModelViewSet):
         Supports filtering by status (`?status=pending`).
         """,
         parameters=[
-            OpenApiParameter(
-                name='status',
-                description='Filter by request status',
-                required=False,
-                type=str,
-                examples=[
-                    OpenApiExample('Pending', value='pending'),
-                    OpenApiExample('Approved', value='approved')
-                ]
-            )
+             OpenApiParameter(
+                 name='status',
+                 description='Filter by request status (pending, approved, rejected)',
+                 required=False,
+                 type=str,
+             ),
+             OpenApiParameter(
+                 name='my_approved',
+                 description='If set to `1` (for Approvers), returns **ALL** requests the user has ever approved, regardless of their current status or level.',
+                 required=False,
+                 type=str,
+                 examples=[OpenApiExample('Approved History', value='1')]
+             )
         ],
+
         responses={
             200: OpenApiExample(
                 "Success",
@@ -550,3 +619,69 @@ class PurchaseRequestViewSet(ModelViewSet):
             data={"receipt_url": request.build_absolute_uri(purchase_request.receipt.url)},
             status_code=status.HTTP_200_OK
         )
+    @extend_schema(
+        summary="Finance: Upload an invoice file",
+        description=(
+            "Finance team uploads the invoice for a purchase request. "
+            "Allows only the invoice file and triggers AI invoice extraction."
+        ),
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'invoice': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Invoice file (PDF/image)'
+                    }
+                },
+                'required': ['invoice']
+            }
+        },
+        responses={
+            200: OpenApiExample(
+                "Success",
+                value={
+                    "success": True,
+                    "message": "Invoice uploaded successfully.",
+                    "data": {
+                        "invoice_url": "http://localhost:8000/media/invoices/invoice.pdf"
+                    },
+                    "errors": None
+                },
+                response_only=True
+            )
+        }
+    )
+    @action(detail=True, methods=["post"], url_path="finance-submit-invoice")
+    def finance_submit_invoice(self, request, pk=None):
+        purchase_request = self.get_object()
+
+        # Only Finance team should access this
+        if not request.user.role == "FINANCE":
+            return api_response(
+                success=False,
+                message="Only finance team can upload invoices.",
+                status_code=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = InvoiceUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return api_response(
+                success=False,
+                message="Invalid invoice file.",
+                errors=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        purchase_request.invoice = serializer.validated_data["invoice"]
+        purchase_request.save()
+
+        return api_response(
+            success=True,
+            message="Invoice uploaded successfully.",
+            data={"invoice_url": request.build_absolute_uri(purchase_request.invoice.url)},
+            status_code=status.HTTP_200_OK
+        )
+
+    

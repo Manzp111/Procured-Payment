@@ -5,12 +5,22 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from drf_spectacular.utils import extend_schema, OpenApiExample
 from django.db import transaction
-from .user_serializer import UserRegistrationSerializer
+from .user_serializer import UserRegistrationSerializer,UserSerializer
 from .utils import api_response
 from .models import VerificationToken,User
 from .task import send_welcome_email_task
 from .mixins import UserStatusMixin
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.core.mail import send_mail
+
+
+class UserListAPIView(APIView):
+    permission_classes = [permissions.AllowAny]  # Only logged-in users can see
+
+    def get(self, request):
+        users = User.objects.all()
+        serializer = UserSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 
@@ -110,7 +120,17 @@ class RegisterAPIView(APIView):
                 user = serializer.create(serializer.validated_data)
                 user.save()
                 token_obj = VerificationToken.objects.create(user=user)
-                send_welcome_email_task.delay(user.id, str(token_obj.token))
+                print("")
+                print(f"Verification token for {user.email}: {token_obj.token}")
+                print("")
+                send_mail(
+                    subject="Welcome!",
+                    message=f"Your verification token is {token_obj.token}",
+                    from_email="noreply@example.com",
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+                # send_welcome_email_task.delay(user.id, str(token_obj.token))
         except Exception as e:
             # Catch any save error
             return api_response(
@@ -267,7 +287,8 @@ class LoginAPIView(APIView, UserStatusMixin):
         refresh = RefreshToken.for_user(user)
         data = {
             "access": str(refresh.access_token),
-            "refresh": str(refresh)
+            "refresh": str(refresh),
+            "role": user.role
         }
 
         return api_response(

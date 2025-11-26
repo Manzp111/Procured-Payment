@@ -78,22 +78,20 @@ TEMPLATES = [
 WSGI_APPLICATION = 'procured_payment.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.sqlite3',
-#         'NAME': BASE_DIR / 'db.sqlite3',
-#     }
-# }
-
-from decouple import config
-import dj_database_url
+# settings.py
+import os
 
 DATABASES = {
-    'default': dj_database_url.parse(config("DATABASE_URL"))
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('DB_NAME', 'ist_db'),
+        'USER': config('DB_USER', 'Ngilbert'),
+        'PASSWORD': config('DB_PASSWORD', 'Ng635188!'),
+        'HOST': config('DB_HOST', 'db'),  # <-- Docker service name
+        'PORT': config('DB_PORT', '5432'),
+    }
 }
+
 
 
 # Password validation
@@ -153,6 +151,13 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 10
 }
 
 

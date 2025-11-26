@@ -81,8 +81,8 @@ class UserManager(BaseUserManager):
 # USER MODEL
 class User(AbstractBaseUser, PermissionsMixin):
 
-    first_name = EncryptedCharField(max_length=50)
-    last_name = EncryptedCharField(max_length=50)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=50)
 
     phone = EncryptedCharField(
         max_length=13,
@@ -95,10 +95,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         ],
     )
 
-    email = EncryptedEmailField(unique=True)
+    email = models.EmailField(unique=True)
     profile_picture = models.ImageField(upload_to="profile_pics/", blank=True, null=True)
 
-    role = EncryptedCharField(max_length=20, choices=USER_ROLES, default="staff")
+    role = models.CharField(max_length=20, choices=USER_ROLES, default="staff")
     registration_date = models.DateTimeField(default=timezone.now)
 
     is_verified = models.BooleanField(default=False)
@@ -136,7 +136,7 @@ class VerificationToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="verification_tokens")
     
     token = models.CharField(max_length=6, default=generate_6_digit_token, unique=True)
-    token = EncryptedCharField(max_length=6, unique=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
 

@@ -75,3 +75,6 @@ class ReceiptUploadSerializer(serializers.Serializer):
 
 class ApprovalActionSerializer(serializers.Serializer):
     comment = serializers.CharField(required=False, allow_blank=True, max_length=500)
+
+class InvoiceUploadSerializer(serializers.Serializer):
+    invoice = serializers.FileField()

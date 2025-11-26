@@ -13,8 +13,8 @@ class ApprovalActionInline(admin.TabularInline):
 @admin.register(PurchaseRequest)
 class PurchaseRequestAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'title', 'status', 'three_way_match_status', 'current_level', 
-        'created_by', 'created_at', 'updated_at'
+        'title', 'status', 'three_way_match_status', 'current_level', 
+        'created_by', 'purchase_order','invoice', 'receipt',
     )
     list_filter = ('status', 'three_way_match_status', 'current_level', 'created_at')
     search_fields = ('title', 'vendor_name', 'vendor_address', 'created_by__username')
