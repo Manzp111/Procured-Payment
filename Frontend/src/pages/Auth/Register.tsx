@@ -155,7 +155,7 @@ export default function Register() {
   };
 
   const renderCriteria = (label: string, valid: boolean) => (
-    <li style={{ color: valid ? "green" : "red" }}>{valid ? "✔" : "✖"} {label}</li>
+    <li style={{ color: valid ? "green" : "red" }}> {label}</li>
   );
 
   const renderPersonalInfo = (fields: string[]) =>
@@ -163,7 +163,7 @@ export default function Register() {
       <li style={{ color: "green" }}>Does not include personal info</li>
     ) : (
       fields.map((f) => (
-        <li key={f} style={{ color: "red" }}>✖ Includes your {f}</li>
+        <li key={f} style={{ color: "red" }}> Includes your {f}</li>
       ))
     );
 
@@ -219,14 +219,21 @@ export default function Register() {
           {renderPersonalInfo(passwordCriteria.personalInfo)}
         </ul>
 
-        <label style={styles.label}>Profile Picture:</label>
-        <input type="file" name="profile_picture" accept="image/*" onChange={handleFile} style={styles.fileInput} />
+        
 
         <button type="submit" style={styles.button} disabled={loading}>
           {loading ? "Creating account..." : "Register"}
         </button>
         
       </form>
+        <div className="text-center">
+          <p className="text-muted mb-0">
+            If you Have an account?{" "}
+            <Link to="/" className="text-primary fw-bold text-decoration-none">
+              Login
+            </Link>
+          </p>
+        </div>
     </div>
   );
 }

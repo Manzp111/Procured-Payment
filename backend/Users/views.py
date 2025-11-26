@@ -10,7 +10,7 @@ from .utils import api_response
 from .models import VerificationToken,User
 from .task import send_welcome_email_task
 from .mixins import UserStatusMixin
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import RefreshToken,TokenError
 from django.core.mail import send_mail
 
 
@@ -297,6 +297,97 @@ class LoginAPIView(APIView, UserStatusMixin):
             data=data,
             status_code=status.HTTP_200_OK
         )
+    
+
+
+
+class RefreshTokenAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    @extend_schema(
+        summary="Refresh JWT access token",
+        description="Takes a refresh token and returns a new access token.",
+        request={
+            "type": dict,
+            "properties": {
+                "refresh": {"type": "string", "description": "Valid refresh token"}
+            },
+            "required": ["refresh"]
+        },
+        responses={
+            200: {
+                "description": "Access token refreshed successfully",
+                "examples": [
+                    OpenApiExample(
+                        "Success Example",
+                        value={
+                            "success": True,
+                            "message": "Access token refreshed successfully",
+                            "data": {
+                                "access": "new_access_token_here"
+                            }
+                        }
+                    )
+                ]
+            },
+            400: {
+                "description": "Refresh token not provided",
+                "examples": [
+                    OpenApiExample(
+                        "Missing Refresh Token",
+                        value={
+                            "success": False,
+                            "message": "Refresh token is required",
+                            "data": None
+                        }
+                    )
+                ]
+            },
+            401: {
+                "description": "Invalid or expired refresh token",
+                "examples": [
+                    OpenApiExample(
+                        "Invalid Token",
+                        value={
+                            "success": False,
+                            "message": "Invalid or expired refresh token",
+                            "data": None
+                        }
+                    )
+                ]
+            }
+        }
+    )
+    def post(self, request):
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            return api_response(
+                success=False,
+                message="Refresh token is required",
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            new_access_token = str(refresh.access_token)
+
+            return api_response(
+                success=True,
+                message="Access token refreshed successfully",
+                data={"access": new_access_token},
+                status_code=status.HTTP_200_OK
+            )
+
+        except TokenError:
+            return api_response(
+                success=False,
+                message="Invalid or expired refresh token",
+                data=None,
+                status_code=status.HTTP_401_UNAUTHORIZED
+            )
+
 
 
 

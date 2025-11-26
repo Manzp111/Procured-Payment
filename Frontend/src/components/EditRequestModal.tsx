@@ -3,30 +3,25 @@ import { Modal, Button, Form, Spinner, Alert, InputGroup } from "react-bootstrap
 import axios from "axios";
 import { FileUp } from 'lucide-react';
 
-// =================================================================
-// INTERFACES (Ensure consistency with parent component)
-// =================================================================
 
 interface Request {
     id: number;
     title: string;
     description: string;
-    amount: string; // Stored as string/decimal in backend
+    amount: string; 
     vendor_name: string;
-    proforma_url: string | null; // Added to display current file
-    // ... other fields are omitted for this component's use
+    proforma_url: string | null;
+    
 }
 
 interface EditRequestModalProps {
     show: boolean;
     handleClose: () => void;
-    request: Request | null; // Use the specific Request interface
-    onUpdated: () => void; // callback to refresh parent
+    request: Request | null; 
+    onUpdated: () => void; 
 }
 
-// =================================================================
-// COMPONENT
-// =================================================================
+
 
 export default function EditRequestModal({ show, handleClose, request, onUpdated }: EditRequestModalProps) {
     
@@ -35,23 +30,20 @@ export default function EditRequestModal({ show, handleClose, request, onUpdated
     const [amount, setAmount] = useState(''); 
     const [vendor, setVendor] = useState('');
 
-    // --- New State for File Handling ---
     const [proformaFile, setProformaFile] = useState<File | null>(null);
     const [currentProformaUrl, setCurrentProformaUrl] = useState<string | null>(null);
-    // ------------------------------------
     
     const [submitLoading, setSubmitLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    // --- Effect to load data when request prop changes or modal shows ---
     useEffect(() => {
         if (request) {
             setTitle(request.title || '');
             setDescription(request.description || '');
             setAmount(request.amount || ''); 
             setVendor(request.vendor_name || '');
-            setCurrentProformaUrl(request.proforma_url); // Store current URL
-            setProformaFile(null); // Clear file input on open
+            setCurrentProformaUrl(request.proforma_url);
+            setProformaFile(null); 
             setError(null); 
         }
     }, [request, show]);
@@ -77,7 +69,6 @@ export default function EditRequestModal({ show, handleClose, request, onUpdated
             return;
         }
 
-        // --- Data Preparation: Use FormData for file uploads ---
         const formData = new FormData();
         
         // Append text fields
@@ -99,7 +90,6 @@ export default function EditRequestModal({ show, handleClose, request, onUpdated
                 { 
                     headers: { 
                         'Authorization': `Bearer ${token}`,
-                        // Do NOT set Content-Type manually for FormData
                     } 
                 }
             );
@@ -129,6 +119,7 @@ export default function EditRequestModal({ show, handleClose, request, onUpdated
     };
 
     return (
+        // Modal for editing a request
         <Modal show={show} onHide={handleClose} centered backdrop="static" keyboard={!submitLoading} size="lg">
                 <Modal.Header closeButton={!submitLoading} className="bg-primary text-white">
                     <Modal.Title>Edit Request - ID {request?.id}</Modal.Title>

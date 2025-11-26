@@ -3,6 +3,7 @@ import axios from "axios";
 import { BiCheckCircle, BiXCircle, BiTime, BiTask } from "react-icons/bi";
 import 'bootstrap/dist/css/bootstrap.min.css';
 
+//interface User
 interface User {
   email: string;
   first_name: string;
@@ -10,6 +11,8 @@ interface User {
   role: string;
 }
 
+
+// interface of request
 interface Request {
   id: number;
   title: string;

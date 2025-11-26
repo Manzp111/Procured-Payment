@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// Imports for navigation and component rendering
 import { NavLink, Outlet } from 'react-router-dom';
 import { 
   Home, Plus, FileText, Clock, CheckCircle, Receipt, DollarSign, 
@@ -7,11 +6,6 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-// =================================================================
-// 1. DEFINE CORE TYPESCRIPT INTERFACES & TYPES
-// =================================================================
-
-/** Defines the structure for a single item in the sidebar configuration. */
 export interface SidebarItemData {
   icon: LucideIcon; 
   label: string;
@@ -21,29 +15,25 @@ export interface SidebarItemData {
   highlight?: boolean;
 }
 
-/** Defines the union of all valid roles. */
 export type RoleKey = 'staff' | 'manager' | 'general_manager' | 'finance';
 
-/** Defines the structure for the entire sidebar configuration object. */
 type SidebarConfig = {
     [key in RoleKey]: SidebarItemData[];
 };
 
-/** Defines the shape of the current user object */
 interface CurrentUser {
     role: RoleKey; 
     firstName: string;
     lastName: string;
 }
 
-// =================================================================
-// 2. CONFIGURATION (Paths are relative to the /dashboard parent route)
-// =================================================================
 
+
+// Sidebar configuration for different user roles
 const sidebarConfig: SidebarConfig = {
+  
   staff: [
     { icon: Home, label: 'Dashboard', path: '.', description: 'Overview' }, 
-    // 💡 RESTORED: 'New Request' mapping to 'about' path
     { icon: Plus, label: 'New Request', path: 'add', description: 'Create purchase request' }, 
     { icon: FileText, label: 'My Requests', path: 'my-requests', description: 'View/edit your requests' },
     { icon: Receipt, label: 'Submit Receipts', path: 'receit/submit', description: 'Upload receipts for approved requests' },
@@ -63,10 +53,9 @@ const sidebarConfig: SidebarConfig = {
   ],
   finance: [
     { icon: Home, label: 'Dashboard', path: '.', description: 'Overview' },
-    { icon: DollarSign, label: 'Approved Requests', path: 'my-requests', description: 'All approved purchase requests', badge: 12 },
-    { icon: FileText, label: 'Purchase Orders', path: 'purchase-orders', description: 'View generated POs' },
-    { icon: AlertTriangle, label: 'Discrepancies', path: 'discrepancies', description: '3-way matching issues', badge: 2 },
-    { icon: BarChart, label: 'Reports', path: 'reports', description: 'Financial reports & analytics' },
+    { icon: DollarSign, label: 'Approved Requests', path: 'my-requests', description: 'All approved purchase requests' },
+    { icon: FileText, label: 'Add Invoice', path: 'invoice/submit', description: 'View generated POs' },
+    { icon: BarChart, label: '3 Match Verifying', path: 'reports', description: 'Financial reports & analytics' },
     { icon: User, label: 'Profile', path: 'profile' }
   ]
 };
@@ -81,7 +70,6 @@ const SidebarItem = ({ item }: SidebarItemProps) => {
   const Icon = item.icon;
 
   return (
-    // Bootstrap 5 classes
     <NavLink
       to={item.path}
       end={item.path === '.'} 
@@ -97,7 +85,6 @@ const SidebarItem = ({ item }: SidebarItemProps) => {
         }
         return classes;
       }}
-      // Custom style to achieve the dark sidebar look
       style={({ isActive }) => ({
         backgroundColor: isActive ? '#0d6efd' : item.highlight ? '#495057' : 'transparent',
       })}
@@ -127,10 +114,10 @@ const SidebarContent = ({ currentUser }: SidebarContentProps) => {
 
   return (
     <div className="d-flex flex-column h-100 bg-dark text-white">
-      {/* Header */}
+    
 
 
-      {/* User Info */}
+     
       <div className="p-3 border-bottom border-secondary">
         <div className="d-flex align-items-center">
           <div className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white me-3" 
@@ -146,7 +133,7 @@ const SidebarContent = ({ currentUser }: SidebarContentProps) => {
         </div>
       </div>
 
-      {/* Navigation Menu */}
+     
       <nav className="flex-grow-1 overflow-auto p-3">
         <div className="nav flex-column">
           {menuItems.map((item, index) => (
@@ -155,7 +142,7 @@ const SidebarContent = ({ currentUser }: SidebarContentProps) => {
         </div>
       </nav>
 
-      {/* Footer */}
+     
       <div className="p-3 border-top border-secondary">
         <button className="btn btn-outline-secondary w-100 btn-sm">
           Logout
@@ -167,7 +154,6 @@ const SidebarContent = ({ currentUser }: SidebarContentProps) => {
 
 
 const DynamicSidebar = () => {
-    // Function to safely retrieve role from localStorage
     const getInitialUser = (): CurrentUser => {
         const role = localStorage.getItem("role") as RoleKey | string | null;
         const validRoles: string[] = ['staff', 'manager', 'general_manager', 'finance'];
@@ -182,7 +168,6 @@ const DynamicSidebar = () => {
     const [currentUser] = useState<CurrentUser>(getInitialUser);
 
     return (
-        // Full Page Layout using Bootstrap Flex Utilities
         <div className="d-flex vh-100 bg-light">
             
             <aside className="position-fixed h-100" style={{ width: '280px', zIndex: 1030 }}>
@@ -194,7 +179,6 @@ const DynamicSidebar = () => {
                     
      
 
-                    {/* 💡 THE OUTLET: This is where the RequestTable or other page content renders */}
                     <Outlet /> 
                     
                 </div>

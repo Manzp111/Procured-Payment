@@ -3,20 +3,15 @@ import {
     Table, Button, Alert, Spinner, Badge, ButtonGroup, 
     InputGroup, FormControl, Pagination, Modal,Form
 } from "react-bootstrap";
-// REMOVED: useNavigate import for page routing
-// import { useNavigate } from "react-router-dom"; 
+
 import axios from "axios";
 import { Check, X, Search, Filter } from 'lucide-react'; 
 
-// RE-INTRODUCED: Import the modal component
 import RequestDetailModal from './RequestDetailPage'; 
-// **FIX: IMPORT THE MISSING EDIT MODAL COMPONENT**
 import EditRequestModal from './EditRequestModal'; 
 
 
-// =================================================================
-// 1. INTERFACES (Full definition for self-containment)
-// =================================================================
+
 
 interface CreatedBy {
     email: string;
@@ -53,11 +48,6 @@ interface PaginatedData {
     results: Request[];
 }
 
-// =================================================================
-// 2. UTILITIES
-// =================================================================
-
-/** Maps request status to a Bootstrap variant for consistent styling. */
 const getStatusVariant = (status: string) => {
     switch (status.toUpperCase()) {
         case "PENDING":
@@ -72,16 +62,11 @@ const getStatusVariant = (status: string) => {
     }
 };
 
-// =================================================================
-// 3. MAIN COMPONENT
-// =================================================================
+
 
 export default function RequestsTable() {
     
-    // REMOVED: Initialize useNavigate for routing
-    // const navigate = useNavigate();
 
-    // --- State Management ---
     const [requests, setRequests] = useState<Request[]>([]);
     const [loading, setLoading] = useState(true);
     const [message, setMessage] = useState<string | null>(null);
@@ -96,21 +81,19 @@ export default function RequestsTable() {
     
     // RE-INTRODUCED MODAL STATE
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
-    // **FIX: EDIT MODAL STATE IS ALREADY DEFINED**
+    const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);    
     const [editModalShow, setEditModalShow] = useState(false);
     const [editRequestData, setEditRequestData] = useState<Request | null>(null);
 
 
-    const StatusOptions = ['ALL', 'PENDING', 'APPROVED', 'REJECTED'];
+    const StatusOptions = ['ALL', 'PENDING', 'APPROVED', 'REJECTED']; //  status filters
 
-    // --- Approve/Reject Confirmation Modal State ---
+    //Approve/Reject Confirmation Modal State ---
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [actionTarget, setActionTarget] = useState<{ requestId: number; action: 'approve' | 'reject' } | null>(null);
     const [commentInput, setCommentInput] = useState('');
 
 
-    // --- Data Fetching Logic (Memoized) ---
     const fetchRequests = useCallback(async (page: number, statusFilter: string, search: string) => {
         setLoading(true);
         setMessage(null);
@@ -175,7 +158,6 @@ export default function RequestsTable() {
         }
     }, []);
 
-    // --- Effects ---
     useEffect(() => {
         const role = localStorage.getItem("role") || 'staff';
         setCurrentUserRole(role);
@@ -221,27 +203,21 @@ export default function RequestsTable() {
     };
 
     
-    // --- Utility Handlers ---
 
-    // 💡 UPDATED to use modal state
     const handleRowClick = (id: number) => {
         setSelectedRequestId(id);
         setShowDetailModal(true);
     };
 
-    // RE-INTRODUCED handleModalClose (for RequestDetailModal)
     const handleModalClose = () => {
         setShowDetailModal(false);
         setSelectedRequestId(null);
-        // Ensure list view is refreshed after closing the modal, in case of actions taken inside
         fetchRequests(currentPage, currentFilterStatus, searchQuery);
     };
 
-    // **FIX: ADDED HANDLER FOR EDIT MODAL CLOSE**
     const handleEditModalClose = () => {
         setEditModalShow(false);
         setEditRequestData(null);
-        // Refresh the list after editing is done/closed
         fetchRequests(currentPage, currentFilterStatus, searchQuery);
     };
 
@@ -268,7 +244,6 @@ export default function RequestsTable() {
         return 'Requests List';
     }
 
-    // --- Loading/Empty State ---
     if (loading) {
         return (
             <div className="d-flex justify-content-center align-items-center p-5">
@@ -304,17 +279,14 @@ export default function RequestsTable() {
                 {getTableTitle()}
             </h2>
             
-            {/* Alert Display */}
             {message && (
                 <Alert variant={isError ? "danger" : "success"} onClose={() => setMessage(null)} dismissible>
                     {message}
                 </Alert>
             )}
 
-            {/* Top Toolbar: Filter & Search */}
             <div className="d-flex justify-content-between align-items-center mb-3">
                 
-                {/* Status Filter Buttons */}
                 <ButtonGroup>
                     <Filter size={18} className="me-2 text-secondary align-self-center" />
                     {StatusOptions.map(status => (
@@ -368,7 +340,6 @@ export default function RequestsTable() {
                                     <td>{request.created_by.full_name}</td>
                                 )}
                                 <td>
-                                    {/* Currency Formatting */}
                                     {parseFloat(request.amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
                                 </td>
                                 <td>
@@ -385,13 +356,11 @@ export default function RequestsTable() {
                                 <td>
                                 <ButtonGroup size="sm" onClick={(e) => e.stopPropagation()}>
 
-                                        {/* Edit button (only staff + pending) */}
                                         {currentUserRole === 'staff' && request.status === 'PENDING' && (
                                             <Button
                                                 variant="warning"
                                                 onClick={async (e) => {
                                                     e.stopPropagation();
-                                                    // Load request data for edit
                                                     const token = localStorage.getItem("accessToken");
                                                     try {
                                                         const res = await axios.get(`http://127.0.0.1:8000/api/requests/${request.id}/`, {
@@ -399,7 +368,7 @@ export default function RequestsTable() {
                                                         });
                                                         if (res.data.success) {
                                                             setEditRequestData(res.data.data);
-                                                            setEditModalShow(true); // **THIS LINE CORRECTLY SETS THE STATE TO SHOW THE MODAL**
+                                                            setEditModalShow(true);
                                                         } else {
                                                             alert("Failed to load request for editing");
                                                         }
@@ -415,7 +384,7 @@ export default function RequestsTable() {
                                         )}
 
                                         
-                                {/* Manager approve/reject buttons */}
+                                {/* approve/reject buttons */}
                                 {isApprover && request.status === 'PENDING' && (
                                     <>
                                         <Button
@@ -477,7 +446,7 @@ export default function RequestsTable() {
                 </Pagination>
             </div>
 
-            {/* RE-ADDED DETAIL MODAL COMPONENT */}
+            {/*  DETAIL MODAL COMPONENT */}
             <RequestDetailModal
                 show={showDetailModal}
                 handleClose={handleModalClose}
@@ -486,12 +455,11 @@ export default function RequestsTable() {
                 
             />
             
-            {/* **FIX: RENDER THE EDIT MODAL COMPONENT HERE** */}
             {editRequestData && (
                 <EditRequestModal
                     show={editModalShow}
-                    handleClose={handleEditModalClose} // New handler to close and refresh
-                    request={editRequestData} // Data loaded when edit is clicked
+                    handleClose={handleEditModalClose} 
+                    request={editRequestData} 
                     onUpdated={() => fetchRequests(currentPage, currentFilterStatus, searchQuery)} // Pass refresh logic
                 />
             )}

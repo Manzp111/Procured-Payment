@@ -118,7 +118,7 @@ export default function RequestDetailModal({ show, handleClose, requestId, edita
                     show={editModalShow}
                     handleClose={() => setEditModalShow(false)}
                     request={request}
-                    onUpdated={fetchRequestDetails} // refresh parent after edit
+                    onUpdated={fetchRequestDetails}
                 />
             )}
 

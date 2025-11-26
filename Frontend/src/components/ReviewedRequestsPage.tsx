@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-// import { CheckCircle } from "react-icons/bi";
 import { BiCheckCircle } from "react-icons/bi";
 
 

@@ -12,7 +12,8 @@ from django.db import models
 from .serializers import (
     PurchaseRequestSerializer,
     ReceiptUploadSerializer,
-    ApprovalActionSerializer
+    ApprovalActionSerializer,
+    InvoiceUploadSerializer
 )
 from .permissions import IsStaff, IsApprover
 from Users.utils import api_response
@@ -658,7 +659,7 @@ class PurchaseRequestViewSet(ModelViewSet):
         purchase_request = self.get_object()
 
         # Only Finance team should access this
-        if not request.user.role == "FINANCE":
+        if not request.user.role == "finance":
             return api_response(
                 success=False,
                 message="Only finance team can upload invoices.",

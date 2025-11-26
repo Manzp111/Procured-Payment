@@ -3,7 +3,7 @@ import { Form, Button, Alert, Spinner } from "react-bootstrap";
 import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import "../../styles/login.css"; // Custom styles for animations, circles, etc.
+import "../../styles/login.css";
 
 interface LoginForm {
   email: string;
@@ -76,7 +76,7 @@ export default function Login() {
               <FaLock size={24} />
             </div>
           </div>
-          <h2 className="h3 fw-bold mb-2">Welcome Back</h2>
+          <h2 className="h3 fw-bold mb-2">Welcome Back to Procured Payment</h2>
           <p className="text-muted mb-0">Sign in to continue to your account</p>
         </div>
 

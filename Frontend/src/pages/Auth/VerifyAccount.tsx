@@ -162,7 +162,7 @@ const styles: Record<string, React.CSSProperties> = {
     transition: "background 0.3s",
   },
   buttonLoading: {
-    background: "#5a6abf", // Darker shade when loading
+    background: "#5a6abf", 
   },
 };
 

@@ -140,7 +140,7 @@ const SubmitReceipts: React.FC = () => {
             <tr>
               <th>Title</th>
               <th>Amount</th>
-              <th>Status</th>
+              <th>Receit Validation</th>
               <th>Proforma</th>
               <th>PO</th>
               <th>Receipt</th>
@@ -194,8 +194,8 @@ const SubmitReceipts: React.FC = () => {
                         </>
                       )
                       : req.three_way_match_status === "DISCREPANCY"
-                      ? "Resubmit"
-                      : "Submit"}
+                      ? "Re Submit Receipt"
+                      : "Add Receipt"}
                   </Button>
                 </td>
               </tr>

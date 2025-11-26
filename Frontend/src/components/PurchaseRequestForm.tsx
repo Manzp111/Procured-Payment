@@ -35,7 +35,7 @@ export default function PurchaseRequestForm() {
     setMessage(null);
     setIsError(false);
     
-    const apiUrl = import.meta.env.VITE_API_URL;
+    const apiUrl = import.meta.env.VITE_API_URL; //variable to get API URL from .env file
 
     try {
       const res = await axios.post(`${apiUrl}/api/requests/`, formData, {
@@ -48,8 +48,8 @@ export default function PurchaseRequestForm() {
       if (res.data.success) {
         setMessage(res.data.message);
         setIsError(false);
-        // Optionally navigate to a different page after successful submission
-        // navigate("/some-other-page");
+        navigate("/dashboard/my-requests"); // Redirect to My Requests page
+        
       } else {
         setMessage(res.data.message);
         setIsError(true);
@@ -123,7 +123,7 @@ export default function PurchaseRequestForm() {
           <Form.Control 
             type="file" 
             accept="application/pdf"
-            onChange={handleFileChange}  // Update this line
+            onChange={handleFileChange} 
             required 
           />
           <Form.Text muted>
