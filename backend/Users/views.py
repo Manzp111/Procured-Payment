@@ -15,7 +15,7 @@ from django.core.mail import send_mail
 
 
 class UserListAPIView(APIView):
-    permission_classes = [permissions.AllowAny]  # Only logged-in users can see
+    permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         users = User.objects.all()
@@ -62,10 +62,7 @@ class RegisterAPIView(APIView):
 
     def post(self, request):
         serializer = UserRegistrationSerializer(data=request.data, context={"request": request})
-
-        # serializer = UserRegistrationSerializer(data=request.data)
-
-        # Validate manually, no automatic exception
+        
         serializer.is_valid(raise_exception=False)
 
         if serializer.errors:
@@ -88,6 +85,12 @@ class RegisterAPIView(APIView):
                 print("")
                 print(f"Verification token for {user.email}: {token_obj.token}")
                 print("")
+                """ here we can send email asynchronously using celery task  or synchronously using send_mail function
+                     for deployment i used send email bcs i cant host celery worker on free h
+                 
+        
+                    """
+
                 # send_mail(
                 #     subject="Welcome!",
                 #     message=f"Your verification token is {token_obj.token}",
