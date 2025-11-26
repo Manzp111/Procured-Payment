@@ -2,6 +2,9 @@
 
 [Frontend Live](https://gilbe.vercel.app/) | [Backend Live](https://gilb.onrender.com/) | [GitHub Repository](https://github.com/Manzp111/Procured-Payment)
 
+
+Frontend: https://gilbe.vercel.app
+Backend:https://gilb.onrender.com/
 ---
 
 ## Overview
