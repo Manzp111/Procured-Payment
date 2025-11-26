@@ -36,7 +36,7 @@ interface Request {
     status: string;
     created_by: CreatedBy;
     current_level: number;
-    proforma: string | null;
+    proforma_url: string | null;
     items_json: Item[];
     vendor_name: string;
 }
@@ -98,8 +98,10 @@ export default function RequestsTable() {
         setLoading(true);
         setMessage(null);
         setIsError(false);
+        const apiUl = import.meta.env.VITE_API_URL;
 
-        const apiUrl = 'http://127.0.0.1:8000';
+
+        const apiUrl = `${apiUl}`;
         const accessToken = localStorage.getItem("accessToken");
         const role = localStorage.getItem("role") || 'staff';
 
@@ -173,7 +175,9 @@ export default function RequestsTable() {
         action: 'approve' | 'reject',
         comment: string = ''
     ) => {
-        const apiUrl = 'http://127.0.0.1:8000';
+        const apiUl = import.meta.env.VITE_API_URL;
+
+        const apiUrl = `${apiUl}`;
         const accessToken = localStorage.getItem("accessToken");
         if (!accessToken) return setMessage("Authentication required");
 
@@ -362,8 +366,10 @@ export default function RequestsTable() {
                                                 onClick={async (e) => {
                                                     e.stopPropagation();
                                                     const token = localStorage.getItem("accessToken");
+                                                    const apiUrl1 = import.meta.env.VITE_API_URL;
+
                                                     try {
-                                                        const res = await axios.get(`http://127.0.0.1:8000/api/requests/${request.id}/`, {
+                                                        const res = await axios.get(`${apiUrl1}/api/requests/${request.id}/`, {
                                                             headers: { Authorization: `Bearer ${token}` }
                                                         });
                                                         if (res.data.success) {
@@ -451,6 +457,7 @@ export default function RequestsTable() {
                 show={showDetailModal}
                 handleClose={handleModalClose}
                 requestId={selectedRequestId}
+                editable={currentUserRole === 'staff'}
                 onAction={handleApproveOrReject} 
                 
             />

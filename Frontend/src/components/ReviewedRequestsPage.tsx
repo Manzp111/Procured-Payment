@@ -29,8 +29,10 @@ export default function ReviewedRequestsPage() {
   useEffect(() => {
     const fetchReviewedRequests = async () => {
       setLoading(true);
+      const apiUrl = import.meta.env.VITE_API_URL;
+
       try {
-        const url = `http://127.0.0.1:8000/api/requests/?approved_by_me=1`;
+        const url = `${apiUrl}/api/requests/?approved_by_me=1`;
         const res = await axios.get(url, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });

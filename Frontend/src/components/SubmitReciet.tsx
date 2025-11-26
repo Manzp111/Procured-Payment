@@ -33,8 +33,10 @@ const SubmitReceipts: React.FC = () => {
 
   const fetchRequests = async () => {
     if (!token) return;
+    const apiUrl = import.meta.env.VITE_API_URL;
+
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/requests/", {
+      const response = await axios.get(`${apiUrl}/api/requests/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data: Request[] = response.data.data.results;
@@ -78,7 +80,9 @@ const SubmitReceipts: React.FC = () => {
 
     const formData = new FormData();
     formData.append("receipt", selectedFile);
-    const apiUrl = `http://127.0.0.1:8000/api/requests/${modalRequestId}/submit_receipt/`;
+    const apiUrl2 = import.meta.env.VITE_API_URL;
+
+    const apiUrl = `${apiUrl2}/api/requests/${modalRequestId}/submit_receipt/`;
 
     try {
       setLoadingIds((prev) => [...prev, modalRequestId]);
@@ -97,8 +101,10 @@ const SubmitReceipts: React.FC = () => {
 
       // Poll backend until status changes from PENDING/DISCREPANCY
       const pollVerification = setInterval(async () => {
+      const apiUrl3 = import.meta.env.VITE_API_URL;
+
         try {
-          const r = await axios.get(`http://127.0.0.1:8000/api/requests/${modalRequestId}/`, {
+          const r = await axios.get(`${apiUrl3}/api/requests/${modalRequestId}/`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const updatedRequest = r.data.data;

@@ -22,11 +22,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Rest of your setup...
+# Copy project files
 COPY . .
+
+# Copy wait-for-it and entrypoint scripts
 COPY wait-for-it.sh .
-RUN chmod +x ./wait-for-it.sh
+COPY entrypoint.sh .
+
+# Make scripts executable
+RUN chmod +x ./wait-for-it.sh ./entrypoint.sh
 
 EXPOSE 8000
 
-CMD ["./wait-for-it.sh", "db:5432", "--", "gunicorn", "IST.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Set entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Default command (will be executed by entrypoint)
+CMD ["gunicorn", "IST.wsgi:application", "--bind", "0.0.0.0:8000"]

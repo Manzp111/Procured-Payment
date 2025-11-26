@@ -22,6 +22,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
+from .tasks import process_proforma,validate_receipt
+
+
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -37,7 +40,6 @@ class PurchaseRequestViewSet(ModelViewSet):
     parser_classes = (MultiPartParser, FormParser)  # Enable file uploads
 
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    # filterset_fields = ['status', 'current_level', 'created_by', 'created_at']
     filterset_fields = {
     'status': ['exact', 'iexact'],
     'current_level': ['exact'],
@@ -114,9 +116,9 @@ class PurchaseRequestViewSet(ModelViewSet):
 
 
 
-
+    #documentation for create
     @extend_schema(
-        summary="Create a new purchase request",
+        summary="Create a new purchase request ",
         description="""
         Staff can submit a purchase request with a proforma invoice (PDF/image).
         The system automatically extracts vendor, items, prices, and terms using AI.
@@ -137,37 +139,7 @@ class PurchaseRequestViewSet(ModelViewSet):
                 'required': ['title', 'description', 'amount', 'proforma']
             }
         },
-        responses={
-            201: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Purchase request created. Proforma processing started.",
-                    "data": {
-                        "id": 1,
-                        "title": "Marketing Conference Registration",
-                        "description": "Annual tech event in Kigali",
-                        "amount": "350.00",
-                        "status": "PENDING",
-                        "proforma_url": "http://localhost:8000/media/proformas/proforma.pdf",
-                        "extraction_status": "PENDING",
-                        "created_at": "2025-11-23T14:30:00Z"
-                    },
-                    "errors": None
-                },
-                response_only=True
-            ),
-            400: OpenApiExample(
-                "Validation Error",
-                value={
-                    "success": False,
-                    "message": "Invalid file type. Allowed: pdf, jpg, jpeg, png",
-                    "data": None,
-                    "errors": {"proforma": ["Invalid file type. Allowed: pdf, jpg, jpeg, png"]}
-                },
-                response_only=True
-            )
-        }
+
     )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -185,7 +157,6 @@ class PurchaseRequestViewSet(ModelViewSet):
         purchase_request = serializer.save(created_by=request.user)
 
         # Trigger AI processing
-        from .tasks import process_proforma
         try:
             process_proforma.delay(purchase_request.id)
         except Exception as e:
@@ -197,7 +168,8 @@ class PurchaseRequestViewSet(ModelViewSet):
             data=serializer.data,
             status_code=status.HTTP_201_CREATED
         )
-
+    
+    # documentation for list
     @extend_schema(
         summary="List purchase requests",
         description="""
@@ -224,28 +196,8 @@ class PurchaseRequestViewSet(ModelViewSet):
              )
         ],
 
-        responses={
-            200: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Requests retrieved successfully",
-                    "data": [
-                        {
-                            "id": 1,
-                            "title": "Laptop for Dev",
-                            "amount": "2500.00",
-                            "status": "PENDING",
-                            "proforma_url": "http://...",
-                            "created_by": {"first_name": "John", "last_name": "Doe"}
-                        }
-                    ],
-                    "errors": None
-                },
-                response_only=True
-            )
-        }
-    )
+
+       )
     def list(self, request, * args, **kwargs):
         response = super().list(request, *args, **kwargs)
         return api_response(
@@ -255,6 +207,8 @@ class PurchaseRequestViewSet(ModelViewSet):
             status_code=status.HTTP_200_OK
         )
 
+
+    # documentation for retrieve
     @extend_schema(
         summary="Retrieve a purchase request",
         description="""
@@ -263,36 +217,8 @@ class PurchaseRequestViewSet(ModelViewSet):
         - Approval history
         - File URLs (proforma, PO, receipt, invoice)
         """,
-        responses={
-            200: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Request retrieved successfully",
-                    "data": {
-                        "id": 1,
-                        "title": "Office Supplies",
-                        "vendor_name": "Tech Solutions Ltd",
-                        "items_json": [{"name": "Laptop", "price": 2500, "quantity": 1}],
-                        "status": "PENDING",
-                        "current_level": 1,
-                        "proforma_url": "http://localhost:8000/media/proformas/proforma.pdf",
-                        "created_by": {"first_name": "John", "last_name": "Doe", "email": "john@ist.com"},
-                        "actions": [
-                            {
-                                "actor": "Jane Approver",
-                                "action": "APPROVED",
-                                "level": 1,
-                                "acted_at": "2025-11-23T15:00:00Z"
-                            }
-                        ]
-                    },
-                    "errors": None
-                },
-                response_only=True
-            )
-        }
-    )
+   
+     )
     def retrieve(self, request, *args, **kwargs):
         response = super().retrieve(request, *args, **kwargs)
         return api_response(
@@ -302,32 +228,13 @@ class PurchaseRequestViewSet(ModelViewSet):
             status_code=status.HTTP_200_OK
         )
 
+
+   # documentation for update
     @extend_schema(
         summary="Update a pending purchase request",
         description="Staff can update their own PENDING requests (title, description, amount).",
         request=PurchaseRequestSerializer,
-        responses={
-            200: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Request updated successfully.",
-                    "data": {"id": 1, "title": "Updated Title", "status": "PENDING"},
-                    "errors": None
-                },
-                response_only=True
-            ),
-            403: OpenApiExample(
-                "Permission Denied",
-                value={
-                    "success": False,
-                    "message": "You can only update your own pending requests.",
-                    "data": None,
-                    "errors": None
-                },
-                response_only=True
-            )
-        }
+
     )
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -345,6 +252,8 @@ class PurchaseRequestViewSet(ModelViewSet):
             data=response.data,
             status_code=status.HTTP_200_OK
         )
+    
+    # documentation for approve added here
     @extend_schema(
     tags=['Purchase Requests'],
     summary="Approve a purchase request",
@@ -357,38 +266,13 @@ class PurchaseRequestViewSet(ModelViewSet):
     - Concurrency protection using `select_for_update()` row locks
     """,
     request=ApprovalActionSerializer,
-    responses={
-        200: OpenApiExample(
-            "Success",
-            value={
-                "success": True,
-                "message": "Request approved successfully.",
-                "data": {
-                    "id": 1,
-                    "status": "APPROVED",
-                    "current_level": 2,
-                    "purchase_order_url": "http://localhost:8000/media/purchase_orders/PO_1.pdf"
-                }
-            },
-            response_only=True
-        ),
-        400: OpenApiExample(
-            "Already Processed",
-            value={"success": False, "message": "Request is already processed."},
-            response_only=True
-        ),
-        403: OpenApiExample(
-            "Unauthorized",
-            value={"success": False, "message": "You are not authorized to approve at this level."},
-            response_only=True
-        )
-    }
+
       )
         
     @action(detail=True, methods=["patch"])
     def approve(self, request, pk=None):
-
-        with transaction.atomic():
+         # we used transaction to ensure concurrency safety and if not all operations are successful then rollback
+        with transaction.atomic(): 
           
             purchase_request = get_object_or_404(
                 PurchaseRequest.objects.select_for_update(),
@@ -465,23 +349,14 @@ class PurchaseRequestViewSet(ModelViewSet):
             data=self.get_serializer(purchase_request).data,
             status_code=status.HTTP_200_OK
         )
+    
 
+    # documentation for reject added here
     @extend_schema(
         summary="Reject a purchase request",
         description="Approvers can reject a PENDING request at any level. Rejection is final and stops the workflow.",
         request=ApprovalActionSerializer,
-        responses={
-            200: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Request rejected successfully.",
-                    "data": {"id": 1, "status": "REJECTED"},
-                    "errors": None
-                },
-                response_only=True
-            )
-        }
+        
     )
     @action(detail=True, methods=["patch"])
     def reject(self, request, pk=None):
@@ -499,7 +374,7 @@ class PurchaseRequestViewSet(ModelViewSet):
 
 
         with transaction.atomic():
-            # 🔒 LOCK FOR CONCURRENCY SAFETY
+            # LOCK FOR CONCURRENCY SAFETY
             purchase_request = get_object_or_404(
                 PurchaseRequest.objects.select_for_update(),
                 id=pk
@@ -549,6 +424,8 @@ class PurchaseRequestViewSet(ModelViewSet):
             status_code=status.HTTP_200_OK
         )
 
+
+    # documentation for submit_receipt added here
     @extend_schema(
         summary="Submit a receipt for an approved request",
         description="Staff can upload a receipt after a request is APPROVED. Triggers 3-way matching validation.",
@@ -561,18 +438,7 @@ class PurchaseRequestViewSet(ModelViewSet):
                 'required': ['receipt']
             }
         },
-        responses={
-            200: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Receipt submitted successfully.",
-                    "data": {"receipt_url": "http://localhost:8000/media/receipts/receipt.pdf"},
-                    "errors": None
-                },
-                response_only=True
-            )
-        }
+        
     )
     @action(detail=True, methods=["post"])
     def submit_receipt(self, request, pk=None):
@@ -608,7 +474,6 @@ class PurchaseRequestViewSet(ModelViewSet):
         purchase_request.save()
 
         # Optional: trigger receipt validation
-        from .tasks import validate_receipt
         try:
             validate_receipt.delay(purchase_request.id)
         except Exception as e:
@@ -620,6 +485,8 @@ class PurchaseRequestViewSet(ModelViewSet):
             data={"receipt_url": request.build_absolute_uri(purchase_request.receipt.url)},
             status_code=status.HTTP_200_OK
         )
+    
+    # documentation for finance_submit_invoice added here
     @extend_schema(
         summary="Finance: Upload an invoice file",
         description=(
@@ -639,20 +506,7 @@ class PurchaseRequestViewSet(ModelViewSet):
                 'required': ['invoice']
             }
         },
-        responses={
-            200: OpenApiExample(
-                "Success",
-                value={
-                    "success": True,
-                    "message": "Invoice uploaded successfully.",
-                    "data": {
-                        "invoice_url": "http://localhost:8000/media/invoices/invoice.pdf"
-                    },
-                    "errors": None
-                },
-                response_only=True
-            )
-        }
+
     )
     @action(detail=True, methods=["post"], url_path="finance-submit-invoice")
     def finance_submit_invoice(self, request, pk=None):

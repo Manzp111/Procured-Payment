@@ -37,26 +37,26 @@ const sidebarConfig: SidebarConfig = {
     { icon: Plus, label: 'New Request', path: 'add', description: 'Create purchase request' }, 
     { icon: FileText, label: 'My Requests', path: 'my-requests', description: 'View/edit your requests' },
     { icon: Receipt, label: 'Submit Receipts', path: 'receit/submit', description: 'Upload receipts for approved requests' },
-    { icon: User, label: 'Profile', path: 'profile' }
+    // { icon: User, label: 'Profile', path: 'profile' }
   ],
   manager: [
     { icon: Home, label: 'Dashboard', path: '.', description: 'Overview' },
     { icon: Clock, label: 'Pending Approvals', path: 'my-requests', description: 'Level 1 requests awaiting approval' },
     { icon: CheckCircle, label: 'Reviewed Requests', path: 'reviewed', description: 'Requests you approved/rejected' },
-    { icon: User, label: 'Profile', path: 'profile' }
+    // { icon: User, label: 'Profile', path: 'profile' }
   ],
   general_manager: [
     { icon: Home, label: 'Dashboard', path: '.', description: 'Overview' },
     { icon: Clock, label: 'Pending Approvals', path: 'my-requests', description: 'Level 2 final approvals' },
     { icon: CheckCircle, label: 'Reviewed Requests', path: 'reviewed', description: 'Requests you approved/rejected' },
-    { icon: User, label: 'Profile', path: 'profile' }
+    // { icon: User, label: 'Profile', path: 'profile' }
   ],
   finance: [
     { icon: Home, label: 'Dashboard', path: '.', description: 'Overview' },
     { icon: DollarSign, label: 'Approved Requests', path: 'my-requests', description: 'All approved purchase requests' },
     { icon: FileText, label: 'Add Invoice', path: 'invoice/submit', description: 'View generated POs' },
     { icon: BarChart, label: '3 Match Verifying', path: 'reports', description: 'Financial reports & analytics' },
-    { icon: User, label: 'Profile', path: 'profile' }
+    // { icon: User, label: 'Profile', path: 'profile' }
   ]
 };
 

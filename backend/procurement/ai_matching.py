@@ -11,6 +11,7 @@ def are_items_same(name1: str, name2: str) -> bool:
     Uses OpenAI to determine if two item names refer to the same product,
     ignoring word order, synonyms, or minor phrasing differences.
     """
+    # Craft the prompt
     prompt = f"""
     You are a smart procurement assistant. Determine if these two item names 
     refer to the same physical product or service. Ignore word order, extra words,

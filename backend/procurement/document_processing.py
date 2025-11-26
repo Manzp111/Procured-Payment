@@ -16,19 +16,19 @@ def extract_text_from_any_pdf(pdf_file):
     pdf_file.seek(0)
     content = pdf_file.read()
     
-    # METHOD 1: Try text extraction first (fast and accurate for text PDFs)
+    # METHOD 1: Try text extraction first)
     try:
         with pdfplumber.open(io.BytesIO(content)) as pdf:
             text = "\n".join(page.extract_text() or "" for page in pdf.pages)
             if len(text.strip()) >= 100:  # Good confidence it's text-based
-                print("✅ Using text extraction (pdfplumber)")
+                print(" Using text extraction (pdfplumber)")
                 return text
     except Exception as e:
         print(f"Text extraction failed: {e}")
     
-    # METHOD 2: Fallback to OCR for scanned PDFs
+    # METHOD 2: try OCR on images
     try:
-        print("🔄 Falling back to OCR (scanned PDF detected)")
+        print(" Falling back to OCR (scanned PDF detected)")
         images = convert_from_bytes(content)
         ocr_text = ""
         for i, img in enumerate(images):

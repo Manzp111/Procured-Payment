@@ -32,7 +32,9 @@ export default function FinanceInvoicePage() {
     setIsError(false);
     try {
       const token = localStorage.getItem("accessToken");
-      const res = await axios.get("http://127.0.0.1:8000/api/requests/", {
+      const apiUrl = import.meta.env.VITE_API_URL;
+
+      const res = await axios.get(`${apiUrl}/api/requests/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data.success) {
@@ -70,11 +72,13 @@ export default function FinanceInvoicePage() {
     setSubmitting(true);
     const formData = new FormData();
     formData.append("invoice", invoiceFile);
+    const apiUrl = import.meta.env.VITE_API_URL;
+
 
     try {
       const token = localStorage.getItem("accessToken");
       const res = await axios.post(
-        `http://127.0.0.1:8000/api/requests/${selectedRequest.id}/finance-submit-invoice/`,
+        `${apiUrl}/api/requests/${selectedRequest.id}/finance-submit-invoice/`,
         formData,
         {
           headers: {

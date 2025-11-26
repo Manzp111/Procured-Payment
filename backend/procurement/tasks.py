@@ -1,17 +1,21 @@
-import logging
-from .document_processing import extract_text_from_any_pdf, parse_with_ai
 from celery import shared_task
 from django.core.files.base import ContentFile
 from django.template.loader import render_to_string
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMessage,send_mail
+from django.db import transaction
+from django.conf import settings
 from weasyprint import HTML
+
+# Local imports
 from .models import PurchaseRequest
-import logging
+from .document_processing import extract_text_from_any_pdf, parse_with_ai
 from .ai_matching import are_items_same
 
+import logging
 
 
-logger = logging.getLogger(__name__)
+
+logger = logging.getLogger(__name__) # Configure logger for this module
 
 @shared_task
 def process_proforma(request_id):
@@ -21,7 +25,6 @@ def process_proforma(request_id):
     pr = PurchaseRequest.objects.get(id=request_id)
     
     try:
-        # Smart extraction handles both formats
         raw_text = extract_text_from_any_pdf(pr.proforma)
         logger.info(f"Extracted {len(raw_text)} characters from request {request_id}")
         
@@ -64,22 +67,22 @@ def generate_purchase_order(request_id):
             return
         items_with_totals = []
         for item in pr.items_json:
-            item_copy = item.copy()  # don't modify original
+            item_copy = item.copy()
             item_copy["total_price"] = float(item["price"]) * int(item["quantity"])
             items_with_totals.append(item_copy)
 
 
-        # 1. Render Template → HTML string
+        # Render Template → HTML string
         html_string = render_to_string("emails/po.html", {"purchase_request": pr,"items": items_with_totals,})
 
-        # 2. Convert HTML → PDF bytes
+        #  Convert HTML → PDF bytes
         pdf_bytes = HTML(string=html_string).write_pdf()
 
-        # 3. Save PDF to model field
+        # Save PDF to model field
         filename = f"PO_{pr.id}.pdf"
         pr.purchase_order.save(filename, ContentFile(pdf_bytes), save=True)
 
-        # 4. Email the PDF to request creator
+        # Email the PDF to request creator
         if pr.created_by and pr.created_by.email:
             email = EmailMessage(
                 subject=f"Purchase Order #{pr.id} Approved",
@@ -95,12 +98,12 @@ def generate_purchase_order(request_id):
             email.attach(filename, pdf_bytes, "application/pdf")
             email.send()
 
-            logger.info(f"📧 PO emailed to {pr.created_by.email}")
+            logger.info(f" PO emailed to {pr.created_by.email}")
 
-        logger.info(f"✅ Purchase Order generated and emailed for request {request_id}")
+        logger.info(f" Purchase Order generated and emailed for request {request_id}")
 
     except Exception as e:
-        logger.error(f"❌ PO generation failed for request {request_id}: {e}")
+        logger.error(f" PO generation failed for request {request_id}: {e}")
 
         # Clean-up fallback: remove invalid PO file
         try:
@@ -111,13 +114,7 @@ def generate_purchase_order(request_id):
             pass
 
 
-from celery import shared_task
-from django.db import transaction
-from django.core.mail import send_mail
-from django.conf import settings
-from .models import PurchaseRequest
-from .document_processing import extract_text_from_any_pdf, parse_with_ai
-import logging
+
 
 
 
@@ -147,7 +144,7 @@ def validate_receipt(self, request_id):
         receipt_data = parse_with_ai(receipt_text)
         
         # 2. GET PO DATA (FROM PROFORMA AI EXTRACTION)
-        po_items = pr.items_json  # List of {"name": "...", "price": ..., "quantity": ...}
+        po_items = pr.items_json 
         po_vendor = pr.vendor_name or ""
         po_total = pr.total_amount_extracted or pr.amount
 
@@ -184,7 +181,7 @@ def validate_receipt(self, request_id):
                 if not rcpt_name:
                     continue
 
-                # 🔥 AI SEMANTIC MATCHING
+                #  AI SEMANTIC MATCHING
                 if are_items_same(po_name, rcpt_name):
                     matched = True
                     matched_receipt_items.add(rcpt_idx)
@@ -265,13 +262,13 @@ def validate_receipt(self, request_id):
                 pr.save()
 
         logger.info(
-            f"✅ 3-way matching completed for request {request_id}. "
+            f" 3-way matching completed for request {request_id}. "
             f"Status: {pr.three_way_match_status}, Issues: {len(discrepancies)}"
         )
 
     except Exception as exc:
         error_msg = str(exc)[:500]
-        logger.error(f"❌ 3-way matching failed for request {request_id}: {error_msg}")
+        logger.error(f"3-way matching failed for request {request_id}: {error_msg}")
         
         try:
             with transaction.atomic():
@@ -284,16 +281,15 @@ def validate_receipt(self, request_id):
 
         raise self.retry(exc=exc, countdown=60)
     
+
+
 @shared_task(bind=True, max_retries=3)
 def send_discrepancy_email_task(self, request_id):
     """
     Generates a beautifully formatted PDF discrepancy report and emails it.
     """
     try:
-        from .models import PurchaseRequest
-        from django.template.loader import render_to_string
-        from weasyprint import HTML
-        from django.core.mail import EmailMessage
+       
 
         pr = PurchaseRequest.objects.get(id=request_id)
         staff = pr.created_by
@@ -388,8 +384,8 @@ def send_discrepancy_email_task(self, request_id):
         email.attach(f"3way_report_{pr.id}.pdf", pdf_bytes, "application/pdf")
         email.send()
 
-        logger.info(f"📧 PDF report sent to {staff.email} for request {request_id}")
+        logger.info(f" PDF report sent to {staff.email} for request {request_id}")
 
     except Exception as exc:
-        logger.error(f"❌ PDF report task failed for request {request_id}: {exc}")
+        logger.error(f" PDF report task failed for request {request_id}: {exc}")
         raise self.retry(exc=exc, countdown=60)

@@ -39,42 +39,7 @@ This endpoint allows a new user to create an account.
 - Public — no authentication required
 """,
     request=UserRegistrationSerializer,
-    responses={
-        201: OpenApiExample(
-            "Success Response",
-            value={
-                "success": True,
-                "message": "User registered successfully",
-                "data": {
-                    "id": 1,
-                    "email": "john@gmail.com",
-                    "phone": "+250780000002",
-                    "first_name": "John",
-                    "last_name": "Doe",
-                    "profile_picture": None,
-                    "is_verified": False,
-                    "is_active": True,
-                    "is_staff": False
-                },
-                "errors": None,
-       
-            }
-        ),
-        400: OpenApiExample(
-            "Validation Error",
-            value={
-                "success": False,
-                "message": "Registration failed",
-                "data": None,
-                "errors": {
-                    "email": ["This field must be unique."],
-                    "phone": ["This field must be unique."],
-                    "password": ["Password is too weak."]
-                },
-       
-            }
-        ),
-    },
+
     examples=[
         OpenApiExample(
             "User Registration Example",
@@ -123,14 +88,14 @@ class RegisterAPIView(APIView):
                 print("")
                 print(f"Verification token for {user.email}: {token_obj.token}")
                 print("")
-                send_mail(
-                    subject="Welcome!",
-                    message=f"Your verification token is {token_obj.token}",
-                    from_email="noreply@example.com",
-                    recipient_list=[user.email],
-                    fail_silently=False,
-                )
-                # send_welcome_email_task.delay(user.id, str(token_obj.token))
+                # send_mail(
+                #     subject="Welcome!",
+                #     message=f"Your verification token is {token_obj.token}",
+                #     from_email="noreply@example.com",
+                #     recipient_list=[user.email],
+                #     fail_silently=False,
+                # )
+                send_welcome_email_task.delay(user.id, str(token_obj.token))
         except Exception as e:
             # Catch any save error
             return api_response(
@@ -181,56 +146,7 @@ This endpoint allows an existing user to log in using their email and password.
         },
         request_only=True
     ),
-    responses={
-        200: OpenApiExample(
-            "Successful Login",
-            value={
-                "success": True,
-                "message": "Login successful",
-                "data": {
-                    "access": "<access_token_here>",
-                    "refresh": "<refresh_token_here>"
-                },
-                "errors": None
-            }
-        ),
-        400: OpenApiExample(
-            "Missing Fields",
-            value={
-                "success": False,
-                "message": "Email and password are required",
-                "data": None,
-                "errors": None
-            }
-        ),
-        401: OpenApiExample(
-            "Incorrect Password",
-            value={
-                "success": False,
-                "message": "Incorrect password",
-                "data": None,
-                "errors": None
-            }
-        ),
-        403: OpenApiExample(
-            "Inactive or Unverified User",
-            value={
-                "success": False,
-                "message": "User account is inactive or not verified",
-                "data": None,
-                "errors": None
-            }
-        ),
-        404: OpenApiExample(
-            "Email Not Found",
-            value={
-                "success": False,
-                "message": "Email does not exist",
-                "data": None,
-                "errors": None
-            }
-        ),
-    },
+
       examples=[
         OpenApiExample(
             "User login Example",
@@ -314,49 +230,7 @@ class RefreshTokenAPIView(APIView):
             },
             "required": ["refresh"]
         },
-        responses={
-            200: {
-                "description": "Access token refreshed successfully",
-                "examples": [
-                    OpenApiExample(
-                        "Success Example",
-                        value={
-                            "success": True,
-                            "message": "Access token refreshed successfully",
-                            "data": {
-                                "access": "new_access_token_here"
-                            }
-                        }
-                    )
-                ]
-            },
-            400: {
-                "description": "Refresh token not provided",
-                "examples": [
-                    OpenApiExample(
-                        "Missing Refresh Token",
-                        value={
-                            "success": False,
-                            "message": "Refresh token is required",
-                            "data": None
-                        }
-                    )
-                ]
-            },
-            401: {
-                "description": "Invalid or expired refresh token",
-                "examples": [
-                    OpenApiExample(
-                        "Invalid Token",
-                        value={
-                            "success": False,
-                            "message": "Invalid or expired refresh token",
-                            "data": None
-                        }
-                    )
-                ]
-            }
-        }
+  
     )
     def post(self, request):
         refresh_token = request.data.get("refresh")
@@ -420,44 +294,7 @@ This endpoint allows a user to verify their account using a 6-digit verification
         },
         request_only=True
     ),
-    responses={
-        200: OpenApiExample(
-            "Successful Verification",
-            value={
-                "success": True,
-                "message": "Account verified successfully",
-                "data": None,
-                "errors": None
-            }
-        ),
-        400: OpenApiExample(
-            "Missing Fields",
-            value={
-                "success": False,
-                "message": "Email and token are required",
-                "data": None,
-                "errors": None
-            }
-        ),
-        404: OpenApiExample(
-            "Invalid Token or Email",
-            value={
-                "success": False,
-                "message": "Invalid token or email",
-                "data": None,
-                "errors": None
-            }
-        ),
-        410: OpenApiExample(
-            "Expired Token",
-            value={
-                "success": False,
-                "message": "Verification token has expired",
-                "data": None,
-                "errors": None
-            }
-        ),
-    },
+
     examples=[
         OpenApiExample(
             "User login Example",

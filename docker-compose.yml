@@ -33,7 +33,7 @@ services:
     build:
       context: ./Frontend
       dockerfile: Dockerfile
-    command: npm run dev
+    command: npm run dev --host 0.0.0.0
     volumes:
       - ./Frontend:/app
       - /app/node_modules
@@ -54,8 +54,8 @@ services:
     image: postgres:15
     environment:
       POSTGRES_DB: ist_db
-      POSTGRES_USER: gilbert
-      POSTGRES_PASSWORD: 123456!
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Ng635188!
     ports:
       - "5432:5432"
     restart: unless-stopped

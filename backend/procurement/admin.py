@@ -2,7 +2,6 @@
 from django.contrib import admin
 from .models import PurchaseRequest, ApprovalAction
 
-# Inline for ApprovalAction to track all actions per request
 class ApprovalActionInline(admin.TabularInline):
     model = ApprovalAction
     extra = 0
@@ -27,7 +26,6 @@ class PurchaseRequestAdmin(admin.ModelAdmin):
   
     ordering = ('-created_at',)
 
-# Optional: register ApprovalAction separately if you want a dedicated view
 @admin.register(ApprovalAction)
 class ApprovalActionAdmin(admin.ModelAdmin):
     list_display = ('id', 'request', 'level', 'action', 'actor', 'acted_at')

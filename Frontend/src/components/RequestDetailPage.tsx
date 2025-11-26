@@ -7,7 +7,8 @@ interface RequestDetailModalProps {
     show: boolean;
     handleClose: () => void;
     requestId: number | null;
-    editable: boolean; // true for staff, false for finance
+    editable: boolean;
+     onAction?: (requestId: number, action: "approve" | "reject", comment?: string) => Promise<void>;
 }
 
 interface Request {
@@ -17,7 +18,7 @@ interface Request {
     amount: string;
     status: string;
     vendor_name: string;
-    proforma: string | null;
+    proforma_url: string | null;
     purchase_order: string | null;
 }
 
@@ -32,8 +33,10 @@ export default function RequestDetailModal({ show, handleClose, requestId, edita
         if (!requestId) return;
         setLoading(true);
         const token = localStorage.getItem("accessToken");
+        const apiUrl = import.meta.env.VITE_API_URL;
+
         try {
-            const res = await axios.get(`http://127.0.0.1:8000/api/requests/${requestId}/`, {
+            const res = await axios.get(`${apiUrl}/api/requests/${requestId}/`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.data.success) setRequest(res.data.data);
@@ -54,10 +57,12 @@ export default function RequestDetailModal({ show, handleClose, requestId, edita
         const formData = new FormData();
         formData.append('receipt', file);
         const token = localStorage.getItem("accessToken");
+        const apiUrl = import.meta.env.VITE_API_URL;
+
 
         try {
             const res = await axios.post(
-                `http://127.0.0.1:8000/api/requests/${requestId}/submit_receipt/`,
+                `${apiUrl}/api/requests/${requestId}/submit_receipt/`,
                 formData,
                 { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' } }
             );
@@ -88,7 +93,7 @@ export default function RequestDetailModal({ show, handleClose, requestId, edita
                     <p><strong>Description:</strong> {request.description}</p>
                     <p><strong>Amount:</strong> {parseFloat(request.amount).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</p>
                     <p><strong>Vendor:</strong> {request.vendor_name}</p>
-                    {request.proforma && <p><a href={request.proforma} target="_blank">View Proforma</a></p>}
+                    {request.proforma_url && <p><a href={request.proforma_url} target="_blank">View Proforma</a></p>}
                     {request.purchase_order && <p><a href={request.purchase_order} target="_blank">View Purchase Order</a></p>}
 
                     {/* Staff: Upload Receipt */}

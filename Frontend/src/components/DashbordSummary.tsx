@@ -40,8 +40,10 @@ export default function DashboardPageSummary() {
   useEffect(() => {
     const fetchRequests = async () => {
       setLoading(true);
+      const apiUrl = import.meta.env.VITE_API_URL;
+
       try {
-        const url = `http://127.0.0.1:8000/api/requests/`;
+        const url = `${apiUrl}/api/requests/`;
         const res = await axios.get(url, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });

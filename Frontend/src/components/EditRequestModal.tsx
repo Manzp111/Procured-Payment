@@ -82,10 +82,12 @@ export default function EditRequestModal({ show, handleClose, request, onUpdated
             formData.append('proforma', proformaFile);
         }
         
+        const apiUrl = import.meta.env.VITE_API_URL;
+
         // Note: axios uses 'multipart/form-data' automatically when using FormData
         try {
             const res = await axios.patch(
-                `http://127.0.0.1:8000/api/requests/${request.id}/`,
+                `${apiUrl}/api/requests/${request.id}/`,
                 formData,
                 { 
                     headers: { 

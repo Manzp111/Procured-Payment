@@ -6,9 +6,7 @@ from django.conf import settings
 User = settings.AUTH_USER_MODEL
 
 
-# -----------------------------
-# BaseModel for common fields
-# -----------------------------
+
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -24,9 +22,7 @@ class BaseModel(models.Model):
 
 
 
-# -----------------------------
-# Approval Level
-# -----------------------------
+
 class ApprovalLevel(BaseModel):
     level = models.PositiveIntegerField()
     name = models.CharField(max_length=100)
@@ -46,9 +42,6 @@ class ApprovalLevel(BaseModel):
 
 
 
-# -----------------------------
-# Purchase Request
-# -----------------------------
 class PurchaseRequest(BaseModel):
     STATUS_CHOICES = [
         ("PENDING", "Pending"),
@@ -116,9 +109,7 @@ class PurchaseRequest(BaseModel):
         return f"{self.title} ({self.status})"
 
 
-# -----------------------------
-# Approval Action (Audit Trail)
-# -----------------------------
+# class to track approval actions
 class ApprovalAction(BaseModel):
     ACTION_CHOICES = [
         ("APPROVED", "Approved"),
