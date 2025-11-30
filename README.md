@@ -4,7 +4,7 @@
 
 
 Frontend: https://gilbe.vercel.app
-Backend:https://gilb.onrender.com/
+Backend:https://gilb.onrender.com/ use https://gilb.onrender.com/admin/  email:admin@gmail.com pass:admin for changing user role 
 ---
 
 ## Overview
@@ -47,8 +47,8 @@ The system includes:
 ### AI Document Processing
 
 * Extract key data from proforma invoices
-* Compare receipt items/prices with approved POs 
-* Flag discrepancies for review if not matching it uses transaction to rollback and send differene to staff
+* Compare receipt items/prices with approved POs  using Ai
+* Flag discrepancies for review if not matching it uses transaction to rollback and send difference to staff
 
 ---
 
@@ -75,10 +75,12 @@ Procured-Payment/
 │   ├── requirements.txt
 │   ├── wait-for-it.sh
 │   └── entrypoint.sh
+    └── .env
 ├── Frontend/                # React frontend
 │   ├── package.json
 │   ├── Dockerfile
 │   └── src/
+    └── .env
 ├── docker-compose.yml       # Multi-container orchestration
 └── .env                     # Environment variables (sensitive)
 ```
@@ -126,7 +128,6 @@ FIELD_ENCRYPTION_KEY=<your-encryption-key>
 VITE_API_URL=https://gilb.onrender.com
 ```
 
-> ⚠️ Never commit real credentials to GitHub. Use `.env` or secret managers.
 
 ---
 
@@ -165,7 +166,7 @@ npm install
 npm run dev -- --host 0.0.0.0
 ```
 
-* Backend: [http://localhost:8000](http://localhost:8000)
+* Backend: [http://localhost:8000](http://127.0.0.1:8000/)
 * Frontend: [http://localhost:5173](http://localhost:5173)
 
 ---
@@ -175,7 +176,7 @@ npm run dev -- --host 0.0.0.0
 ```bash
 git clone https://github.com/Manzp111/Procured-Payment.git
 cd Procured-Payment
-
+add environment variable
 # Build and start all services
 docker-compose up --build
 ```
@@ -201,21 +202,9 @@ docker pull manzp/ist_frontend:latest
 docker-compose up
 ```
 
-> This runs all services without building locally.
-
----
-
 ## API Endpoints (Django REST Framework)
 
-| Method | Endpoint                           | Role     | Description                      |
-| ------ | ---------------------------------- | -------- | -------------------------------- |
-| POST   | /api/requests/                     | Staff    | Create a purchase request        |
-| GET    | /api/requests/                     | All      | List requests (filtered by role) |
-| GET    | /api/requests/{id}/                | All      | View request details             |
-| PATCH  | /api/requests/{id}/approve/        | Approver | Approve request                  |
-| PATCH  | /api/requests/{id}/reject/         | Approver | Reject request                   |
-| PUT    | /api/requests/{id}/                | Staff    | Update request (if pending)      |
-| POST   | /api/requests/{id}/submit-receipt/ | Staff    | Submit receipt                   |
+
 
 > Includes authentication (JWT/Token/Session) and role-based access control.
 
@@ -223,8 +212,9 @@ docker-compose up
 
 ## Deployment
 
-* Backend: [Render](https://gilb.onrender.com/)
+* Backend: [Render](https://gilb.onrender.com/) 
 * Frontend: [Vercel](https://gilbe.vercel.app/)
+
 
 
 
